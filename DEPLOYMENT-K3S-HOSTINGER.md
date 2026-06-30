@@ -93,6 +93,8 @@ kubectl create secret generic hiresphere-s3-credentials \
 
 ## Deploy
 
+The CI pipeline validates and smoke-tests on every push. Container registry publishing is enabled only when repository variable `ENABLE_GHCR_PUBLISH=true` is set for GHCR, or Docker Hub secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` are configured.
+
 ```bash
 helm upgrade --install hiresphere charts/hiresphere \
   --namespace hiresphere \

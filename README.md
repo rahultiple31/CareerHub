@@ -96,6 +96,7 @@ Individual component artifacts are written to `.build/<component>/` and copied i
 - Docker Compose builds and runs one gateway, eight micro-frontends, the API service, PostgreSQL, Redis, and OpenSearch.
 - The Helm chart deploys the same services to K3s Kubernetes.
 - `.github/workflows/ci-cd.yml` compiles React, validates Helm, smoke-tests Docker routes, and publishes selected images.
+- CI image publishing is optional. Set repository variable `ENABLE_GHCR_PUBLISH=true` for GitHub Container Registry, or configure `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` secrets for Docker Hub.
 
 Only the gateway publishes a public HTTP route. Internal containers communicate through Kubernetes ClusterIP services.
 
