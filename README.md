@@ -89,6 +89,12 @@ Build all nine React applications:
 npm run build:all
 ```
 
+Build the static GitHub Pages artifact:
+
+```bash
+npm run build:pages
+```
+
 Individual component artifacts are written to `.build/<component>/` and copied into production Nginx images by the Dockerfiles.
 
 ## Deployment

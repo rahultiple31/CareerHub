@@ -8,6 +8,7 @@
     "build": "vite build --mode gateway",
     "build:component": "vite build",
     "build:all": "npm run build && vite build --mode workspace && vite build --mode jobs && vite build --mode projects && vite build --mode network && vite build --mode interview && vite build --mode profile && vite build --mode hr-studio && vite build --mode scale",
+    "build:pages": "npm run build:all && node scripts/assemble-pages.mjs",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
