@@ -1,0 +1,187 @@
+{{- if .Values.database.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "hiresphere.databaseFullname" . }}
+  labels:
+    {{- include "hiresphere.labels" . | nindent 4 }}
+    app.kubernetes.io/component: database
+spec:
+  serviceName: {{ include "hiresphere.databaseFullname" . }}
+  replicas: 1
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  selector:
+    matchLabels:
+      {{- include "hiresphere.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: database
+  template:
+    metadata:
+      labels:
+        {{- include "hiresphere.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: database
+      annotations:
+        checksum/database-config: {{ include (print $.Template.BasePath "/database-configmap.yaml") . | sha256sum }}
+        checksum/database-secret: {{ include (print $.Template.BasePath "/database-secret.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "hiresphere.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        {{- toYaml .Values.database.podSecurityContext | nindent 8 }}
+      containers:
+        - name: postgresql
+          image: {{ printf "%s:%s" .Values.database.postgresql.image.repository .Values.database.postgresql.image.tag | quote }}
+          imagePullPolicy: {{ .Values.database.postgresql.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.database.containerSecurityContext | nindent 12 }}
+            runAsUser: 70
+            runAsGroup: 70
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hiresphere.databaseSecretName" . }}
+                  key: postgres-database
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hiresphere.databaseSecretName" . }}
+                  key: postgres-username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hiresphere.databaseSecretName" . }}
+                  key: postgres-password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - name: postgresql
+              containerPort: {{ .Values.database.postgresql.port }}
+              protocol: TCP
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+          resources:
+            {{- toYaml .Values.database.postgresql.resources | nindent 12 }}
+          volumeMounts:
+            - name: postgresql-data
+              mountPath: /var/lib/postgresql/data
+            - name: database-init
+              mountPath: /docker-entrypoint-initdb.d/01-postgresql-schema.sql
+              subPath: 01-postgresql-schema.sql
+              readOnly: true
+
+        - name: mongodb
+          image: {{ printf "%s:%s" .Values.database.mongodb.image.repository .Values.database.mongodb.image.tag | quote }}
+          imagePullPolicy: {{ .Values.database.mongodb.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.database.containerSecurityContext | nindent 12 }}
+            runAsUser: 999
+            runAsGroup: 999
+          env:
+            - name: MONGO_INITDB_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hiresphere.databaseSecretName" . }}
+                  key: mongodb-database
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hiresphere.databaseSecretName" . }}
+                  key: mongodb-root-username
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hiresphere.databaseSecretName" . }}
+                  key: mongodb-root-password
+          ports:
+            - name: mongodb
+              containerPort: {{ .Values.database.mongodb.port }}
+              protocol: TCP
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "mongosh --quiet --username \"$MONGO_INITDB_ROOT_USERNAME\" --password \"$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval \"db.adminCommand('ping').ok\""]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "mongosh --quiet --username \"$MONGO_INITDB_ROOT_USERNAME\" --password \"$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval \"db.adminCommand('ping').ok\""]
+            initialDelaySeconds: 40
+            periodSeconds: 15
+            timeoutSeconds: 5
+          resources:
+            {{- toYaml .Values.database.mongodb.resources | nindent 12 }}
+          volumeMounts:
+            - name: mongodb-data
+              mountPath: /data/db
+            - name: database-init
+              mountPath: /docker-entrypoint-initdb.d/02-mongodb-schema.js
+              subPath: 02-mongodb-schema.js
+              readOnly: true
+
+      volumes:
+        - name: database-init
+          configMap:
+            name: {{ include "hiresphere.databaseFullname" . }}-init
+        {{- if not .Values.database.persistence.enabled }}
+        - name: postgresql-data
+          emptyDir: {}
+        - name: mongodb-data
+          emptyDir: {}
+        {{- end }}
+      {{- with .Values.database.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.database.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.database.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  {{- if .Values.database.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: postgresql-data
+        labels:
+          {{- include "hiresphere.labels" . | nindent 10 }}
+          app.kubernetes.io/component: database
+      spec:
+        accessModes:
+          {{- toYaml .Values.database.persistence.accessModes | nindent 10 }}
+        {{- with .Values.database.persistence.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.database.persistence.postgresSize }}
+    - metadata:
+        name: mongodb-data
+        labels:
+          {{- include "hiresphere.labels" . | nindent 10 }}
+          app.kubernetes.io/component: database
+      spec:
+        accessModes:
+          {{- toYaml .Values.database.persistence.accessModes | nindent 10 }}
+        {{- with .Values.database.persistence.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.database.persistence.mongodbSize }}
+  {{- end }}
+{{- end }}

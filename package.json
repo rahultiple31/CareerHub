@@ -1,0 +1,28 @@
+{
+  "name": "hiresphere-react-microfrontends",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build --mode gateway",
+    "build:component": "vite build",
+    "build:all": "npm run build && vite build --mode workspace && vite build --mode jobs && vite build --mode projects && vite build --mode network && vite build --mode interview && vite build --mode profile && vite build --mode hr-studio && vite build --mode scale",
+    "build:pages": "npm run build:all && node scripts/assemble-pages.js",
+    "test:pages": "node scripts/check-pages-routes.js",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "mongodb": "^7.3.0",
+    "pg": "^8.22.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "4.6.0",
+    "vite": "7.3.5"
+  },
+  "overrides": {
+    "esbuild": "0.27.2"
+  }
+}

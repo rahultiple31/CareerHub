@@ -1,0 +1,24 @@
+/* The original HireSphere stylesheet is loaded from shared/base.css. */
+#serviceFrame {
+  display: block;
+  width: 100%;
+  min-height: calc(100vh - 112px);
+  border: 0;
+  background: transparent;
+}
+
+.service-frame-loading {
+  opacity: 0.72;
+}
+
+@media (max-width: 1180px) {
+  #serviceFrame {
+    min-height: 900px;
+  }
+}
+
+@media (max-width: 760px) {
+  #serviceFrame {
+    min-height: 1000px;
+  }
+}

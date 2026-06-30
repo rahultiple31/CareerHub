@@ -1,0 +1,60 @@
+name: hiresphere
+
+x-service: &service
+  restart: unless-stopped
+  networks: [hiresphere]
+
+services:
+  gateway:
+    image: hiresphere-gateway:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports: ["8080:8080"]
+    depends_on:
+      workspace-service: { condition: service_healthy }
+      jobs-service: { condition: service_healthy }
+      projects-service: { condition: service_healthy }
+      network-service: { condition: service_healthy }
+      interview-service: { condition: service_healthy }
+      profile-service: { condition: service_healthy }
+      hr-studio-service: { condition: service_healthy }
+      scale-service: { condition: service_healthy }
+    restart: unless-stopped
+    networks: [hiresphere]
+
+  workspace-service:
+    <<: *service
+    image: hiresphere-workspace:local
+    build: { context: ., dockerfile: services/workspace/Dockerfile }
+  jobs-service:
+    <<: *service
+    image: hiresphere-jobs:local
+    build: { context: ., dockerfile: services/jobs/Dockerfile }
+  projects-service:
+    <<: *service
+    image: hiresphere-projects:local
+    build: { context: ., dockerfile: services/projects/Dockerfile }
+  network-service:
+    <<: *service
+    image: hiresphere-network:local
+    build: { context: ., dockerfile: services/network/Dockerfile }
+  interview-service:
+    <<: *service
+    image: hiresphere-interview:local
+    build: { context: ., dockerfile: services/interview/Dockerfile }
+  profile-service:
+    <<: *service
+    image: hiresphere-profile:local
+    build: { context: ., dockerfile: services/profile/Dockerfile }
+  hr-studio-service:
+    <<: *service
+    image: hiresphere-hr-studio:local
+    build: { context: ., dockerfile: services/hr-studio/Dockerfile }
+  scale-service:
+    <<: *service
+    image: hiresphere-scale:local
+    build: { context: ., dockerfile: services/scale/Dockerfile }
+
+networks:
+  hiresphere:

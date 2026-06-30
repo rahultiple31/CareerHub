@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "database": {
+      "type": "object",
+      "required": ["enabled", "auth", "postgresql", "mongodb", "service", "persistence"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "auth": {
+          "type": "object",
+          "required": ["postgresDatabase", "postgresUsername", "mongodbDatabase", "mongodbRootUsername"],
+          "properties": {
+            "existingSecret": { "type": "string" },
+            "postgresDatabase": { "type": "string", "minLength": 1 },
+            "postgresUsername": { "type": "string", "minLength": 1 },
+            "postgresPassword": { "type": "string" },
+            "mongodbDatabase": { "type": "string", "minLength": 1 },
+            "mongodbRootUsername": { "type": "string", "minLength": 1 },
+            "mongodbRootPassword": { "type": "string" }
+          }
+        },
+        "postgresql": {
+          "type": "object",
+          "required": ["image", "port", "resources"],
+          "properties": {
+            "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+          }
+        },
+        "mongodb": {
+          "type": "object",
+          "required": ["image", "port", "resources"],
+          "properties": {
+            "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+          }
+        },
+        "service": {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": { "enum": ["ClusterIP"] }
+          }
+        },
+        "persistence": {
+          "type": "object",
+          "required": ["enabled", "accessModes", "postgresSize", "mongodbSize"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "storageClass": { "type": "string" },
+            "accessModes": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "enum": ["ReadWriteOnce", "ReadOnlyMany", "ReadWriteMany", "ReadWriteOncePod"] }
+            },
+            "postgresSize": { "type": "string", "pattern": "^[0-9]+(Mi|Gi|Ti)$" },
+            "mongodbSize": { "type": "string", "pattern": "^[0-9]+(Mi|Gi|Ti)$" }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,276 @@
+name: HireSphere CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "**"
+  pull_request:
+    branches:
+      - main
+      - master
+    paths:
+      - "**"
+  workflow_dispatch:
+    inputs:
+      component:
+        description: Choose all components or one image to build and publish
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - gateway
+          - workspace
+          - jobs
+          - projects
+          - network
+          - interview
+          - profile
+          - hr-studio
+          - scale
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  APP_DIR: .
+  CHART_PATH: charts/hiresphere
+  IMAGE_REPOSITORY: ghcr.io/${{ github.repository_owner }}/hiresphere-gateway
+  DOCKERHUB_REPOSITORY: rahultipledocker/hiresphere-gateway
+  RELEASE_NAME: ${{ vars.HELM_RELEASE_NAME || 'hiresphere' }}
+  KUBE_NAMESPACE: ${{ vars.KUBE_NAMESPACE || 'hiresphere' }}
+
+jobs:
+  validate:
+    name: Validate App and Chart
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check required files
+        run: |
+          test -f "$APP_DIR/index.html"
+          test -f "$APP_DIR/gateway/styles.css"
+          test -f "$APP_DIR/src/gateway-main.jsx"
+          test -f "$APP_DIR/src/service-main.jsx"
+          test -f "$APP_DIR/package.json"
+          test -f "$APP_DIR/vite.config.js"
+          test -f "$APP_DIR/Dockerfile"
+          test -f "$APP_DIR/docker-compose.yml"
+          for service in workspace jobs projects network interview profile hr-studio scale; do
+            test -f "$APP_DIR/services/$service/index.html"
+            test -f "$APP_DIR/services/$service/styles.css"
+            test -f "$APP_DIR/services/$service/Dockerfile"
+          done
+          test -f "$CHART_PATH/Chart.yaml"
+          test -f "$CHART_PATH/values.yaml"
+          test -f "$CHART_PATH/values.schema.json"
+          test -f "$CHART_PATH/templates/database-secret.yaml"
+          test -f "$CHART_PATH/templates/database-configmap.yaml"
+          test -f "$CHART_PATH/templates/database-statefulset.yaml"
+          test -f "$CHART_PATH/templates/database-service.yaml"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install and compile React applications
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build:pages
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.15.4
+
+      - name: Helm lint
+        run: helm lint "$CHART_PATH"
+
+      - name: Helm template smoke test
+        run: |
+          helm template "$RELEASE_NAME" "$CHART_PATH" \
+            --namespace "$KUBE_NAMESPACE" \
+            --set fullnameOverride="$RELEASE_NAME" \
+            --set image.repository="$DOCKERHUB_REPOSITORY" \
+            --set image.tag="1.0" > /tmp/hiresphere-rendered.yaml
+          grep -q "kind: StatefulSet" /tmp/hiresphere-rendered.yaml
+          grep -q "app.kubernetes.io/component: database" /tmp/hiresphere-rendered.yaml
+          grep -q "name: postgresql" /tmp/hiresphere-rendered.yaml
+          grep -q "name: mongodb" /tmp/hiresphere-rendered.yaml
+          grep -q "01-postgresql-schema.sql" /tmp/hiresphere-rendered.yaml
+          grep -q "02-mongodb-schema.js" /tmp/hiresphere-rendered.yaml
+          helm template "$RELEASE_NAME" "$CHART_PATH" \
+            --namespace "$KUBE_NAMESPACE" \
+            --set database.enabled=false > /tmp/hiresphere-no-database.yaml
+          if grep -q "app.kubernetes.io/component: database" /tmp/hiresphere-no-database.yaml; then
+            echo "Database resources rendered while database.enabled=false"
+            exit 1
+          fi
+          helm template "$RELEASE_NAME" "$CHART_PATH" \
+            --namespace "$KUBE_NAMESPACE" \
+            --set database.persistence.enabled=false > /tmp/hiresphere-ephemeral-database.yaml
+          grep -q "emptyDir: {}" /tmp/hiresphere-ephemeral-database.yaml
+          helm template "$RELEASE_NAME" "$CHART_PATH" \
+            --namespace "$KUBE_NAMESPACE" \
+            --set database.auth.existingSecret=external-database-secret > /tmp/hiresphere-external-secret.yaml
+          grep -q "name: external-database-secret" /tmp/hiresphere-external-secret.yaml
+
+  integration:
+    name: Build and Test Complete Platform
+    if: github.event_name != 'workflow_dispatch' || inputs.component == 'all' || inputs.component == 'gateway'
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build and start microservices
+        run: docker compose up -d --build
+
+      - name: Test gateway and service routes
+        run: |
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -fsS http://localhost:8080/healthz; then
+              break
+            fi
+            echo "Health check attempt ${attempt} failed"
+            docker compose ps
+            sleep 2
+          done
+          for route in workspace jobs projects network interview profile hr-studio scale; do
+            curl -fsS "http://localhost:8080/${route}/" | grep -qi "<title>"
+          done
+
+      - name: Cleanup smoke-test services
+        if: always()
+        run: docker compose down --volumes
+
+  gateway-image:
+    name: Publish Gateway Image
+    if: always() && needs.validate.result == 'success' && needs.integration.result == 'success' && github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.component == 'all' || inputs.component == 'gateway')
+    runs-on: ubuntu-latest
+    needs: [validate, integration]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.IMAGE_REPOSITORY }}
+            ${{ env.DOCKERHUB_REPOSITORY }}
+          tags: |
+            type=sha,prefix=sha-
+            type=ref,event=branch
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=1.0
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.APP_DIR }}
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  service-images:
+    name: Publish ${{ matrix.service }} Service
+    if: always() && needs.validate.result == 'success' && (needs.integration.result == 'success' || needs.integration.result == 'skipped') && github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.component != 'gateway')
+    runs-on: ubuntu-latest
+    needs: [validate, integration]
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        service: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.component != 'all' && inputs.component != 'gateway' && format('["{0}"]', inputs.component) || '["workspace","jobs","projects","network","interview","profile","hr-studio","scale"]') }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build selected service smoke-test image
+        run: docker build -f "services/${{ matrix.service }}/Dockerfile" -t "hiresphere-${{ matrix.service }}:ci" .
+
+      - name: Test selected service container
+        run: |
+          docker run -d --name selected-service-test -p 8080:8080 "hiresphere-${{ matrix.service }}:ci"
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -fsS http://localhost:8080/healthz && curl -fsS http://localhost:8080/ | grep -qi "<title>"; then
+              exit 0
+            fi
+            echo "Service health check attempt ${attempt} failed"
+            docker logs selected-service-test || true
+            sleep 2
+          done
+          exit 1
+
+      - name: Cleanup selected service container
+        if: always()
+        run: docker rm -f selected-service-test || true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Service image metadata
+        id: service-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/${{ github.repository_owner }}/hiresphere-${{ matrix.service }}
+            rahultipledocker/hiresphere-${{ matrix.service }}
+          tags: |
+            type=raw,value=1.0
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-
+
+      - name: Build and push service image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.APP_DIR }}
+          file: services/${{ matrix.service }}/Dockerfile
+          push: true
+          tags: ${{ steps.service-meta.outputs.tags }}
+          labels: ${{ steps.service-meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}

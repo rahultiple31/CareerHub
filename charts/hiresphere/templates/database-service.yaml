@@ -1,0 +1,23 @@
+{{- if .Values.database.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "hiresphere.databaseFullname" . }}
+  labels:
+    {{- include "hiresphere.labels" . | nindent 4 }}
+    app.kubernetes.io/component: database
+spec:
+  type: {{ .Values.database.service.type }}
+  ports:
+    - name: postgresql
+      port: {{ .Values.database.postgresql.port }}
+      targetPort: postgresql
+      protocol: TCP
+    - name: mongodb
+      port: {{ .Values.database.mongodb.port }}
+      targetPort: mongodb
+      protocol: TCP
+  selector:
+    {{- include "hiresphere.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: database
+{{- end }}

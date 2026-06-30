@@ -1,0 +1,7 @@
+apiVersion: v2
+name: hiresphere
+description: Helm chart for HireSphere micro-frontends with persistent SQL and NoSQL storage
+type: application
+version: 0.4.0
+appVersion: "2.2.0"
+kubeVersion: ">=1.27.0-0"

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>HireSphere | Talent Marketplace Platform</title>
+    <link rel="stylesheet" href="shared/base.css" />
+    <link rel="stylesheet" href="shell.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+<aside class="sidebar" aria-label="Main navigation">
+        <a class="brand" href="#workspace" aria-label="HireSphere workspace">
+          <span class="brand-mark">HS</span>
+          <span>
+            <strong>HireSphere</strong>
+            <small>Talent OS</small>
+          </span>
+        </a>
+
+        <nav class="nav-groups">
+          <button class="nav-item active" data-view="workspace" type="button">
+            <span class="nav-icon">01</span>
+            Workspace
+          </button>
+          <button class="nav-item" data-view="jobs" type="button">
+            <span class="nav-icon">02</span>
+            Jobs
+          </button>
+          <button class="nav-item" data-view="projects" type="button">
+            <span class="nav-icon">03</span>
+            Projects
+          </button>
+          <button class="nav-item" data-view="network" type="button">
+            <span class="nav-icon">04</span>
+            Network
+          </button>
+          <button class="nav-item" data-view="interview" type="button">
+            <span class="nav-icon">05</span>
+            Interview
+          </button>
+          <button class="nav-item" data-view="profile" type="button">
+            <span class="nav-icon">06</span>
+            Profile
+          </button>
+          <button class="nav-item" data-view="admin" type="button">
+            <span class="nav-icon">07</span>
+            HR Studio
+          </button>
+          <button class="nav-item" data-view="architecture" type="button">
+            <span class="nav-icon">08</span>
+            Scale
+          </button>
+        </nav>
+
+        <div class="role-switcher" aria-label="Role switcher">
+          <span>Active Role</span>
+          <div class="segmented" role="tablist" aria-label="Choose user role">
+            <button class="role-tab active" data-role="candidate" type="button">Candidate</button>
+            <button class="role-tab" data-role="recruiter" type="button">HR</button>
+            <button class="role-tab" data-role="owner" type="button">Owner</button>
+            <button class="role-tab" data-role="interviewer" type="button">Interviewer</button>
+          </div>
+        </div>
+      </aside>
+      <main class="main">
+<header class="topbar">
+          <label class="global-search" for="globalSearch">
+            <span>Search</span>
+            <input id="globalSearch" type="search" placeholder="Jobs, projects, people, skills" />
+          </label>
+          <div class="top-actions">
+            <button class="icon-button" id="themeToggle" type="button" title="Toggle theme" aria-label="Toggle theme">T</button>
+            <button class="icon-button" id="notifyToggle" type="button" title="Notifications" aria-label="Notifications">N</button>
+            <button class="primary-button" data-view-jump="interview" type="button">Schedule Interview</button>
+          </div>
+        </header>
+<section class="notification-tray" id="notificationTray" aria-live="polite">
+          <div class="tray-head">
+            <h2>Real-time Notifications</h2>
+            <button class="ghost-button" id="clearNotifications" type="button">Clear</button>
+          </div>
+          <div id="notificationList"></div>
+        </section>
+        <iframe id="serviceFrame" title="Workspace service" src="workspace/" loading="eager" scrolling="no"></iframe>
+      </main>
+    </div>
+    <script src="shell.js"></script>
+  </body>
+</html>

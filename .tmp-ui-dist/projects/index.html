@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>HireSphere | Projects</title>
+    <link rel="stylesheet" href="../shared/base.css" />
+    <link rel="stylesheet" href="../shared/frame.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+<section class="view active" id="projects">
+          <div class="section-title">
+            <div>
+              <span class="eyebrow">Freelance marketplace</span>
+              <h1>Browse projects, bid, create teams, and manage milestones.</h1>
+            </div>
+            <button class="primary-button" data-view-jump="admin" type="button">Create Project</button>
+          </div>
+
+          <div class="tool-row">
+            <label>
+              Skill
+              <input id="projectSkill" type="search" placeholder="AI, mobile, cloud" />
+            </label>
+            <label>
+              Budget
+              <select id="projectBudget">
+                <option value="all">Any budget</option>
+                <option value="10000">Above $10K</option>
+                <option value="25000">Above $25K</option>
+                <option value="50000">Above $50K</option>
+              </select>
+            </label>
+            <label>
+              Duration
+              <select id="projectDuration">
+                <option value="all">Any duration</option>
+                <option value="short">Under 4 weeks</option>
+                <option value="medium">1-3 months</option>
+                <option value="long">3+ months</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="project-board" id="projectBoard"></div>
+          <section class="panel payment-panel">
+            <div class="panel-head">
+              <h2>Escrow Payment Flow</h2>
+              <span class="status-pill">Milestone protected</span>
+            </div>
+            <div class="payment-flow">
+              <span>Owner funds</span>
+              <span>Escrow lock</span>
+              <span>Work approved</span>
+              <span>Payment released</span>
+            </div>
+            <div id="invoiceList" class="invoice-list"></div>
+          </section>
+        </section>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

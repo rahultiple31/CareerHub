@@ -1,0 +1,11 @@
+node_modules/
+.build/
+dist/
+.tmp-node/
+.tmp-node.zip
+.tmp-helm/
+.tmp-helm.zip
+.tmp-actionlint/
+.tmp-actionlint.zip
+*.log
+react-*-check.png

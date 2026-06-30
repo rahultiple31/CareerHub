@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>HireSphere | Jobs</title>
+    <link rel="stylesheet" href="../shared/base.css" />
+    <link rel="stylesheet" href="../shared/frame.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+<section class="view active" id="jobs">
+          <div class="section-title">
+            <div>
+              <span class="eyebrow">Job search module</span>
+              <h1>Search roles, save jobs, and track applications.</h1>
+            </div>
+            <button class="primary-button" data-view-jump="admin" type="button">Post Job</button>
+          </div>
+
+          <div class="tool-row">
+            <label>
+              Keyword
+              <input id="jobKeyword" type="search" placeholder="React, Java, DevOps" />
+            </label>
+            <label>
+              Location
+              <select id="jobLocation">
+                <option value="all">All locations</option>
+                <option value="Remote">Remote</option>
+                <option value="Bengaluru">Bengaluru</option>
+                <option value="Pune">Pune</option>
+                <option value="Hyderabad">Hyderabad</option>
+                <option value="Mumbai">Mumbai</option>
+              </select>
+            </label>
+            <label>
+              Experience
+              <select id="jobExperience">
+                <option value="all">Any experience</option>
+                <option value="0-2">0-2 years</option>
+                <option value="3-5">3-5 years</option>
+                <option value="6-9">6-9 years</option>
+                <option value="10+">10+ years</option>
+              </select>
+            </label>
+            <label>
+              Salary min
+              <input id="salaryRange" type="range" min="0" max="80" value="0" />
+              <output id="salaryOutput">Any</output>
+            </label>
+            <label class="check-line">
+              <input id="remoteOnly" type="checkbox" />
+              Remote only
+            </label>
+          </div>
+
+          <div class="result-layout">
+            <div id="jobResults" class="result-list"></div>
+            <aside class="insight-panel">
+              <h2>Recommended Skills</h2>
+              <div class="skill-cloud" id="jobSkillCloud"></div>
+              <h2>Application Tracker</h2>
+              <div id="applicationTracker" class="mini-timeline"></div>
+            </aside>
+          </div>
+        </section>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

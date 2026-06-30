@@ -1,0 +1,66 @@
+.react-shell { min-height: 100vh; }
+.react-shell.app-shell { grid-template-columns: 320px minmax(0, 1fr); }
+.react-shell .sidebar { padding: 16px; gap: 16px; overflow-y: auto; scrollbar-width: thin; }
+.profile-overview-card.sidebar-profile-card {
+  flex: 0 0 auto;
+  margin: 0;
+  border-color: #d9dfdc;
+  border-radius: 16px;
+  background: #fff;
+  color: #07101f;
+  box-shadow: none;
+}
+.sidebar-profile-card .profile-overview-main { padding: 20px 12px 16px; }
+.sidebar-profile-card .profile-completion { width: 110px; height: 110px; }
+.sidebar-profile-card .profile-completion::before,
+.sidebar-profile-card .profile-completion > strong { background: #fff; }
+.sidebar-profile-card .profile-avatar { width: 88px; height: 88px; }
+.profile-name-button { margin: 18px 0 7px; padding: 0; border: 0; background: transparent; color: #07101f; font-size: 1.45rem; font-weight: 800; letter-spacing: -.03em; }
+.profile-name-button:hover { color: var(--teal); text-decoration: underline; text-underline-offset: 3px; }
+.sidebar-profile-card .profile-overview-main p { color: #17201d; }
+.sidebar-profile-card .profile-overview-main small { color: #67716d; }
+body.dark .profile-overview-card.sidebar-profile-card { border-color: #39443f; background: #1b2320; color: #fff; }
+body.dark .sidebar-profile-card .profile-completion::before,
+body.dark .sidebar-profile-card .profile-completion > strong { background: #1b2320; }
+body.dark .profile-name-button { color: #fff; }
+body.dark .profile-name-button:hover { color: #50e3b3; }
+body.dark .sidebar-profile-card .profile-overview-main p { color: #f3f8f5; }
+body.dark .sidebar-profile-card .profile-overview-main small { color: #c7d2cd; }
+.sidebar-status { margin-top: 14px; color: var(--muted); font-size: .76rem; display: flex; align-items: center; gap: 8px; }
+.live-dot, .service-health i { width: 8px; height: 8px; border-radius: 50%; background: #38c793; box-shadow: 0 0 0 4px rgb(56 199 147 / 12%); }
+.notification-button { position: relative; }
+.notification-button b { position: absolute; top: -5px; right: -5px; display: grid; place-items: center; min-width: 18px; height: 18px; border-radius: 20px; padding: 0 4px; background: var(--coral); color: white; font-size: .65rem; }
+.service-heading { display: flex; align-items: center; justify-content: space-between; padding: 18px 4px 8px; }
+.service-heading-main { display: flex; align-items: flex-end; gap: 20px; flex-wrap: wrap; }
+.service-heading-title { display: grid; gap: 2px; }
+.service-heading strong { font-size: 1.35rem; }
+.service-heading .header-audience-switch { margin: 0; }
+.service-health { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: .78rem; }
+.route-loader { height: 3px; overflow: hidden; background: var(--surface-2); border-radius: 4px; }
+.route-loader span { display: block; width: 35%; height: 100%; background: var(--teal); animation: route-progress .8s ease-in-out infinite alternate; }
+@keyframes route-progress { to { transform: translateX(190%); } }
+button { cursor: pointer; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid color-mix(in srgb, var(--teal), transparent 55%); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; } }
+.empty-state { padding: 40px; text-align: center; border: 1px dashed var(--line); border-radius: var(--radius); background: var(--surface); }
+.empty-state strong { font-size: 1.2rem; }
+.empty-state p { color: var(--muted); }
+.arch-number { color: var(--teal); font-size: .75rem; font-weight: 800; letter-spacing: .12em; }
+.primary-button:disabled { opacity: .7; cursor: default; }
+@media (max-width: 1180px) {
+  .react-shell.app-shell { grid-template-columns: 1fr; }
+  .sidebar-profile-card { display: none; }
+}
+@media (max-width: 760px) {
+  .main, #serviceFrame { width: 100%; max-width: 100%; overflow-x: hidden; }
+  .sidebar { gap: 10px; }
+  .nav-groups { display: flex; overflow-x: auto; padding-bottom: 3px; scrollbar-width: none; }
+  .nav-groups::-webkit-scrollbar { display: none; }
+  .nav-item { flex: 0 0 auto; min-height: 36px; padding: 7px 11px; }
+  .role-switcher { margin-top: 0; }
+  .segmented { display: flex; overflow-x: auto; }
+  .role-tab { flex: 1 0 auto; min-height: 34px; }
+  .sidebar-status { margin-top: 4px; }
+  .top-actions .primary-button { min-width: 0; padding-inline: 10px; }
+  .hero-copy h1 { max-width: 100%; font-size: 1.48rem; overflow-wrap: anywhere; }
+}

@@ -1,0 +1,44 @@
+HireSphere has been deployed.
+
+Release:
+  {{ .Release.Name }}
+
+Namespace:
+  {{ .Release.Namespace }}
+
+Service:
+  {{ include "hiresphere.fullname" . }}:{{ .Values.service.port }}
+
+{{- if .Values.ingress.enabled }}
+Ingress:
+{{- range .Values.ingress.hosts }}
+  http://{{ .host }}{{ (index .paths 0).path }}
+{{- end }}
+{{- else }}
+{{- if eq .Values.service.type "NodePort" }}
+NodePort:
+  kubectl get svc {{ include "hiresphere.fullname" . }} -n {{ .Release.Namespace }}
+  http://<node-ip>:<node-port>
+{{- else }}
+Port forward:
+  kubectl port-forward svc/{{ include "hiresphere.fullname" . }} 8080:{{ .Values.service.port }} -n {{ .Release.Namespace }}
+  open http://localhost:8080
+{{- end }}
+{{- end }}
+
+{{- if .Values.database.enabled }}
+
+Database workload:
+  Pod: {{ include "hiresphere.databaseFullname" . }}-0
+  Service: {{ include "hiresphere.databaseFullname" . }}
+  PostgreSQL: {{ include "hiresphere.databaseFullname" . }}:{{ .Values.database.postgresql.port }}/{{ .Values.database.auth.postgresDatabase }}
+  MongoDB: {{ include "hiresphere.databaseFullname" . }}:{{ .Values.database.mongodb.port }}/{{ .Values.database.auth.mongodbDatabase }}
+  Credentials secret: {{ include "hiresphere.databaseSecretName" . }}
+
+Database status:
+  kubectl get statefulset,pod,pvc,service -l app.kubernetes.io/component=database -n {{ .Release.Namespace }}
+
+Read generated PostgreSQL credentials:
+  kubectl get secret {{ include "hiresphere.databaseSecretName" . }} -n {{ .Release.Namespace }} -o jsonpath='{.data.postgres-username}' | base64 --decode
+  kubectl get secret {{ include "hiresphere.databaseSecretName" . }} -n {{ .Release.Namespace }} -o jsonpath='{.data.postgres-password}' | base64 --decode
+{{- end }}

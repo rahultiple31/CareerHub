@@ -1,0 +1,13 @@
+.git
+.github
+charts
+desktop-check.png
+mobile-check.png
+README.md
+*.log
+node_modules
+.DS_Store
+Thumbs.db
+.build
+dist
+.tmp-ui-dist

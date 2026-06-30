@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>HireSphere | Interview</title>
+    <link rel="stylesheet" href="../shared/base.css" />
+    <link rel="stylesheet" href="../shared/frame.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+<section class="view active" id="interview">
+          <div class="section-title">
+            <div>
+              <span class="eyebrow">Real-time mock interview</span>
+              <h1>20-minute session, recording, chat, ratings, and STAR feedback.</h1>
+            </div>
+            <button class="primary-button" id="startInterview" type="button">Start 20 Min</button>
+          </div>
+
+          <div class="interview-grid">
+            <section class="video-stage">
+              <div class="video-main">
+                <span class="camera-label">Candidate Camera</span>
+                <div class="avatar-large">AK</div>
+                <strong>Ananya Kulkarni</strong>
+                <small>Senior Full Stack Engineer</small>
+              </div>
+              <div class="video-side">
+                <div>
+                  <span class="camera-label">Interviewer</span>
+                  <div class="avatar-small">RM</div>
+                </div>
+                <div>
+                  <span class="camera-label">Screen Share</span>
+                  <div class="screen-share">
+                    <span></span><span></span><span></span>
+                  </div>
+                </div>
+              </div>
+              <div class="call-controls">
+                <button class="icon-button active-control" type="button" title="Camera" aria-label="Camera">C</button>
+                <button class="icon-button active-control" type="button" title="Microphone" aria-label="Microphone">M</button>
+                <button class="icon-button" type="button" title="Screen share" aria-label="Screen share">S</button>
+                <button class="danger-button" id="endInterview" type="button">End</button>
+              </div>
+            </section>
+
+            <aside class="interview-side">
+              <div class="timer-block">
+                <span>Session Timer</span>
+                <strong id="interviewTimer">20:00</strong>
+                <small id="recordingState">Recording ready</small>
+              </div>
+              <div class="chat-box" id="chatBox"></div>
+              <form class="chat-form" id="chatForm">
+                <input id="chatInput" type="text" placeholder="Interview chat message" />
+                <button class="secondary-button" type="submit">Send</button>
+              </form>
+            </aside>
+          </div>
+
+          <section class="rating-panel">
+            <div class="panel-head">
+              <h2>STAR Feedback</h2>
+              <span class="status-pill">Auto score <strong id="starScore">4.3</strong></span>
+            </div>
+            <div class="star-grid">
+              <label>Situation<textarea id="situationText">Handled a production outage during a release window.</textarea></label>
+              <label>Task<textarea id="taskText">Restore service availability and protect customer transactions.</textarea></label>
+              <label>Action<textarea id="actionText">Scaled pods, isolated a database lock, and coordinated rollback notes.</textarea></label>
+              <label>Result<textarea id="resultText">Recovered within 20 minutes with clear post-incident ownership.</textarea></label>
+            </div>
+            <div class="score-grid">
+              <label>Communication <input class="score-input" type="range" min="1" max="5" step="0.5" value="4.5" /></label>
+              <label>Technical Skills <input class="score-input" type="range" min="1" max="5" step="0.5" value="4" /></label>
+              <label>Problem Solving <input class="score-input" type="range" min="1" max="5" step="0.5" value="4.5" /></label>
+              <label>Confidence <input class="score-input" type="range" min="1" max="5" step="0.5" value="4" /></label>
+            </div>
+          </section>
+        </section>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

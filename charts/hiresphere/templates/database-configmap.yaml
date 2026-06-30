@@ -1,0 +1,190 @@
+{{- if .Values.database.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "hiresphere.databaseFullname" . }}-init
+  labels:
+    {{- include "hiresphere.labels" . | nindent 4 }}
+    app.kubernetes.io/component: database
+data:
+  01-postgresql-schema.sql: |
+    CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+    CREATE TABLE IF NOT EXISTS users (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      email TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      account_type TEXT NOT NULL CHECK (account_type IN ('candidate', 'employer', 'interviewer', 'owner')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS candidate_profiles (
+      user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      full_name TEXT NOT NULL,
+      headline TEXT NOT NULL,
+      company TEXT,
+      bio TEXT,
+      location TEXT,
+      completion SMALLINT NOT NULL DEFAULT 0 CHECK (completion BETWEEN 0 AND 100),
+      profile_data JSONB NOT NULL DEFAULT '{}'::jsonb,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS skills (
+      id BIGSERIAL PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE
+    );
+
+    CREATE TABLE IF NOT EXISTS profile_skills (
+      user_id UUID NOT NULL REFERENCES candidate_profiles(user_id) ON DELETE CASCADE,
+      skill_id BIGINT NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
+      proficiency SMALLINT CHECK (proficiency BETWEEN 1 AND 5),
+      verified BOOLEAN NOT NULL DEFAULT FALSE,
+      PRIMARY KEY (user_id, skill_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS jobs (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      owner_id UUID NOT NULL REFERENCES users(id),
+      title TEXT NOT NULL,
+      company TEXT NOT NULL,
+      description TEXT NOT NULL,
+      location TEXT,
+      salary_min NUMERIC(12,2),
+      salary_max NUMERIC(12,2),
+      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'closed')),
+      requirements JSONB NOT NULL DEFAULT '[]'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS applications (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+      candidate_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'submitted' CHECK (status IN ('submitted', 'review', 'shortlisted', 'interview', 'offered', 'rejected', 'withdrawn')),
+      match_score NUMERIC(5,2),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (job_id, candidate_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS projects (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      owner_id UUID NOT NULL REFERENCES users(id),
+      title TEXT NOT NULL,
+      description TEXT NOT NULL,
+      budget NUMERIC(12,2) NOT NULL CHECK (budget >= 0),
+      currency CHAR(3) NOT NULL DEFAULT 'USD',
+      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'open', 'active', 'completed', 'cancelled')),
+      deadline DATE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS project_milestones (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      amount NUMERIC(12,2) NOT NULL CHECK (amount >= 0),
+      due_date DATE,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'funded', 'submitted', 'approved', 'released'))
+    );
+
+    CREATE TABLE IF NOT EXISTS interviews (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      application_id UUID REFERENCES applications(id) ON DELETE SET NULL,
+      candidate_id UUID NOT NULL REFERENCES users(id),
+      interviewer_id UUID REFERENCES users(id),
+      scheduled_at TIMESTAMPTZ NOT NULL,
+      status TEXT NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'live', 'completed', 'cancelled')),
+      score NUMERIC(3,2),
+      feedback JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS payments (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      project_id UUID NOT NULL REFERENCES projects(id),
+      milestone_id UUID REFERENCES project_milestones(id),
+      payer_id UUID NOT NULL REFERENCES users(id),
+      payee_id UUID NOT NULL REFERENCES users(id),
+      amount NUMERIC(12,2) NOT NULL CHECK (amount >= 0),
+      currency CHAR(3) NOT NULL DEFAULT 'USD',
+      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'escrowed', 'released', 'refunded', 'failed')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_jobs_status_created ON jobs(status, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_applications_candidate ON applications(candidate_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_applications_job_status ON applications(job_id, status);
+    CREATE INDEX IF NOT EXISTS idx_projects_status_created ON projects(status, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_interviews_candidate_schedule ON interviews(candidate_id, scheduled_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_profiles_data_gin ON candidate_profiles USING GIN(profile_data);
+
+  02-mongodb-schema.js: |
+    const databaseName = process.env.MONGO_INITDB_DATABASE || {{ .Values.database.auth.mongodbDatabase | quote }};
+    const hiresphereDb = db.getSiblingDB(databaseName);
+
+    hiresphereDb.createCollection("feed_posts", {
+      validator: {
+        $jsonSchema: {
+          bsonType: "object",
+          required: ["authorId", "type", "text", "createdAt"],
+          properties: {
+            authorId: { bsonType: "string" },
+            type: { enum: ["update", "opportunity", "article", "announcement"] },
+            text: { bsonType: "string" },
+            tags: { bsonType: "array", items: { bsonType: "string" } },
+            createdAt: { bsonType: "date" },
+            updatedAt: { bsonType: "date" }
+          }
+        }
+      }
+    });
+
+    hiresphereDb.createCollection("notifications", {
+      validator: {
+        $jsonSchema: {
+          bsonType: "object",
+          required: ["userId", "title", "body", "read", "createdAt"],
+          properties: {
+            userId: { bsonType: "string" },
+            title: { bsonType: "string" },
+            body: { bsonType: "string" },
+            read: { bsonType: "bool" },
+            metadata: { bsonType: "object" },
+            createdAt: { bsonType: "date" }
+          }
+        }
+      }
+    });
+
+    hiresphereDb.createCollection("activity_events", {
+      validator: {
+        $jsonSchema: {
+          bsonType: "object",
+          required: ["eventType", "actorId", "occurredAt"],
+          properties: {
+            eventType: { bsonType: "string" },
+            actorId: { bsonType: "string" },
+            subjectId: { bsonType: "string" },
+            payload: { bsonType: "object" },
+            occurredAt: { bsonType: "date" }
+          }
+        }
+      }
+    });
+
+    hiresphereDb.createCollection("search_documents");
+    hiresphereDb.feed_posts.createIndex({ createdAt: -1 });
+    hiresphereDb.feed_posts.createIndex({ authorId: 1, createdAt: -1 });
+    hiresphereDb.feed_posts.createIndex({ text: "text", tags: "text" });
+    hiresphereDb.notifications.createIndex({ userId: 1, read: 1, createdAt: -1 });
+    hiresphereDb.activity_events.createIndex({ actorId: 1, occurredAt: -1 });
+    hiresphereDb.activity_events.createIndex({ eventType: 1, occurredAt: -1 });
+    hiresphereDb.search_documents.createIndex({ entityType: 1, entityId: 1 }, { unique: true });
+    hiresphereDb.search_documents.createIndex({ title: "text", content: "text", skills: "text" });
+{{- end }}

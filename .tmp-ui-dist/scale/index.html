@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>HireSphere | Scale</title>
+    <link rel="stylesheet" href="../shared/base.css" />
+    <link rel="stylesheet" href="../shared/frame.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+<section class="view active" id="architecture">
+          <div class="section-title">
+            <div>
+              <span class="eyebrow">Heavy-scale architecture</span>
+              <h1>Microservices, WebSocket events, search, recommendations, payments, and cloud storage.</h1>
+            </div>
+          </div>
+
+          <div class="architecture-grid">
+            <section class="arch-lane">
+              <h2>Frontend</h2>
+              <p>React or Next.js with TypeScript, role-aware routing, live data queries, SSR for public jobs, and CDN cached assets.</p>
+            </section>
+            <section class="arch-lane">
+              <h2>API Gateway</h2>
+              <p>JWT auth, MFA, RBAC policy checks, rate limits, audit logs, and request routing into domain services.</p>
+            </section>
+            <section class="arch-lane">
+              <h2>Services</h2>
+              <p>User, Job, Project, Interview, Video, Notification, Payment, Search, and Recommendation services.</p>
+            </section>
+            <section class="arch-lane">
+              <h2>Real Time</h2>
+              <p>Socket.io or WebSocket gateway, Redis Pub/Sub for fanout, Kafka for durable interview, feed, and payment events.</p>
+            </section>
+            <section class="arch-lane">
+              <h2>Data</h2>
+              <p>PostgreSQL for core transactions, MongoDB for feed and notes, Redis cache, object storage on S3 or Azure Blob.</p>
+            </section>
+            <section class="arch-lane">
+              <h2>Cloud Scale</h2>
+              <p>Docker, Kubernetes, Helm, Terraform, autoscaling, multi-region read replicas, observability, and CI/CD pipelines.</p>
+            </section>
+          </div>
+
+          <div class="scale-flow">
+            <span>Load Balancer</span>
+            <span>API Gateway</span>
+            <span>Kubernetes</span>
+            <span>Microservices</span>
+            <span>Redis Cache</span>
+            <span>PostgreSQL + MongoDB</span>
+          </div>
+        </section>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
