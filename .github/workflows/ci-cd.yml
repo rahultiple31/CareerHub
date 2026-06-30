@@ -170,6 +170,8 @@ jobs:
     if: always() && needs.validate.result == 'success' && needs.integration.result == 'success' && github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.component == 'all' || inputs.component == 'gateway')
     runs-on: ubuntu-latest
     needs: [validate, integration]
+    env:
+      HAS_DOCKERHUB: ${{ secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -185,32 +187,55 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Log in to Docker Hub
+        if: env.HAS_DOCKERHUB == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Docker metadata
-        id: meta
+      - name: GHCR metadata
+        id: ghcr-meta
         uses: docker/metadata-action@v5
         with:
-          images: |
-            ${{ env.IMAGE_REPOSITORY }}
-            ${{ env.DOCKERHUB_REPOSITORY }}
+          images: ${{ env.IMAGE_REPOSITORY }}
           tags: |
             type=sha,prefix=sha-
             type=ref,event=branch
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=1.0
 
-      - name: Build and push Docker image
+      - name: Build and push GHCR image
         uses: docker/build-push-action@v6
         with:
           context: ${{ env.APP_DIR }}
           file: Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.ghcr-meta.outputs.tags }}
+          labels: ${{ steps.ghcr-meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Docker Hub metadata
+        if: env.HAS_DOCKERHUB == 'true'
+        id: dockerhub-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKERHUB_REPOSITORY }}
+          tags: |
+            type=sha,prefix=sha-
+            type=ref,event=branch
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=1.0
+
+      - name: Build and push Docker Hub image
+        if: env.HAS_DOCKERHUB == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.APP_DIR }}
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.dockerhub-meta.outputs.tags }}
+          labels: ${{ steps.dockerhub-meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -219,6 +244,8 @@ jobs:
     if: always() && needs.validate.result == 'success' && (needs.integration.result == 'success' || needs.integration.result == 'skipped') && github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.component != 'gateway')
     runs-on: ubuntu-latest
     needs: [validate, integration]
+    env:
+      HAS_DOCKERHUB: ${{ secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
     strategy:
       fail-fast: false
       max-parallel: 4
@@ -268,30 +295,52 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Log in to Docker Hub
+        if: env.HAS_DOCKERHUB == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Service image metadata
-        id: service-meta
+      - name: GHCR service image metadata
+        id: ghcr-service-meta
         uses: docker/metadata-action@v5
         with:
-          images: |
-            ghcr.io/${{ github.repository_owner }}/hiresphere-${{ matrix.service }}
-            rahultipledocker/hiresphere-${{ matrix.service }}
+          images: ghcr.io/${{ github.repository_owner }}/hiresphere-${{ matrix.service }}
           tags: |
             type=raw,value=1.0
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=sha-
 
-      - name: Build and push service image
+      - name: Build and push GHCR service image
         uses: docker/build-push-action@v6
         with:
           context: ${{ env.APP_DIR }}
           file: services/${{ matrix.service }}/Dockerfile
           push: true
-          tags: ${{ steps.service-meta.outputs.tags }}
-          labels: ${{ steps.service-meta.outputs.labels }}
+          tags: ${{ steps.ghcr-service-meta.outputs.tags }}
+          labels: ${{ steps.ghcr-service-meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+      - name: Docker Hub service image metadata
+        if: env.HAS_DOCKERHUB == 'true'
+        id: dockerhub-service-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: rahultipledocker/hiresphere-${{ matrix.service }}
+          tags: |
+            type=raw,value=1.0
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-
+
+      - name: Build and push Docker Hub service image
+        if: env.HAS_DOCKERHUB == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.APP_DIR }}
+          file: services/${{ matrix.service }}/Dockerfile
+          push: true
+          tags: ${{ steps.dockerhub-service-meta.outputs.tags }}
+          labels: ${{ steps.dockerhub-service-meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
