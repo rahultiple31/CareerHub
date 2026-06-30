@@ -1,6 +1,6 @@
 apiVersion: v2
 name: hiresphere
-description: Helm chart for HireSphere micro-frontends with persistent SQL and NoSQL storage
+description: Helm chart for hiresphere on K3s with React, Node API, PostgreSQL, Nginx Ingress, cert-manager, and S3 storage
 type: application
 version: 0.4.0
 appVersion: "2.2.0"

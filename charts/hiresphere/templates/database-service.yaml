@@ -13,10 +13,6 @@ spec:
       port: {{ .Values.database.postgresql.port }}
       targetPort: postgresql
       protocol: TCP
-    - name: mongodb
-      port: {{ .Values.database.mongodb.port }}
-      targetPort: mongodb
-      protocol: TCP
   selector:
     {{- include "hiresphere.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: database

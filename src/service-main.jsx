@@ -63,7 +63,7 @@ function Workspace() {
 
   return <section className="view active landing-view">
     <div className="workspace-hero conversion-hero">
-      <img src="./talent-command-center.png" alt="Talent and hiring activity inside HireSphere" />
+      <img src="./talent-command-center.png" alt="Talent and hiring activity inside hiresphere" />
       <div className="hero-copy">
         <div className="hero-live"><span />12,000+ people building what comes next</div>
         <span className="eyebrow">{message.eyebrow}</span>
@@ -202,8 +202,8 @@ function HrStudio() {
 
 function Scale() {
   useShellBridge();
-  const lanes = [["Frontend", "React micro-frontends with shared design tokens, route isolation, and independently shipped bundles."], ["API gateway", "JWT auth, MFA, RBAC policy checks, rate limits, audit logs, and domain routing."], ["Services", "User, Job, Project, Interview, Notification, Payment, Search, and Recommendation domains."], ["Real time", "WebSocket presence, Redis Pub/Sub fanout, and Kafka-backed durable events."], ["Data", "PostgreSQL transactions, MongoDB feed data, Redis cache, and encrypted object storage."], ["Cloud scale", "Docker, Kubernetes, Helm, autoscaling, observability, and progressive delivery."]];
-  return <section className="view active"><SectionTitle eyebrow="Platform architecture" title="Independent at the edges. Coherent at the center." /><div className="architecture-grid">{lanes.map(([title, text], index) => <section className="arch-lane" key={title}><span className="arch-number">0{index + 1}</span><h2>{title}</h2><p>{text}</p></section>)}</div><div className="scale-flow">{["Load balancer", "API gateway", "Kubernetes", "Microservices", "Redis cache", "PostgreSQL + MongoDB"].map((item) => <span key={item}>{item}</span>)}</div></section>;
+  const lanes = [["Frontend", "React micro-frontends with shared design tokens, route isolation, and independently shipped bundles."], ["API gateway", "JWT auth, MFA, RBAC policy checks, rate limits, audit logs, and domain routing."], ["Services", "User, Job, Project, Interview, Notification, Payment, Search, and Recommendation domains."], ["Storage", "AWS S3 stores PDFs, images, exported data, and backup objects outside the cluster."], ["Data", "PostgreSQL transactions, JSONB activity data, retained PVC storage, and encrypted object metadata."], ["Cloud scale", "K3s on Hostinger KVM 8, Helm, Nginx Ingress, cert-manager SSL, autoscaling, and logs."]];
+  return <section className="view active"><SectionTitle eyebrow="Platform architecture" title="Independent at the edges. Coherent at the center." /><div className="architecture-grid">{lanes.map(([title, text], index) => <section className="arch-lane" key={title}><span className="arch-number">0{index + 1}</span><h2>{title}</h2><p>{text}</p></section>)}</div><div className="scale-flow">{["Hostinger KVM 8", "Nginx Ingress", "React services", "Node API", "PostgreSQL", "AWS S3"].map((item) => <span key={item}>{item}</span>)}</div></section>;
 }
 
 const pages = { workspace: Workspace, jobs: Jobs, projects: Projects, network: Network, interview: Interview, profile: Profile, "hr-studio": HrStudio, scale: Scale };

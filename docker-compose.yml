@@ -20,6 +20,7 @@ services:
       profile-service: { condition: service_healthy }
       hr-studio-service: { condition: service_healthy }
       scale-service: { condition: service_healthy }
+      api-service: { condition: service_healthy }
     restart: unless-stopped
     networks: [hiresphere]
 
@@ -56,5 +57,43 @@ services:
     image: hiresphere-scale:local
     build: { context: ., dockerfile: services/scale/Dockerfile }
 
+  api-service:
+    <<: *service
+    image: hiresphere-api:local
+    build: { context: ., dockerfile: services/api/Dockerfile }
+    environment:
+      PORT: "8080"
+      SESSION_SECRET: "local-development-session-secret-change-me"
+      APP_ORIGIN: "http://localhost:8080"
+      POSTGRES_HOST: database
+      POSTGRES_PORT: "5432"
+      POSTGRES_DATABASE: hiresphere
+      POSTGRES_USERNAME: hiresphere
+      POSTGRES_PASSWORD: hiresphere_local_password
+      AWS_REGION: ap-south-1
+      AWS_S3_BUCKET: ""
+      AWS_S3_PREFIX: hiresphere
+    depends_on:
+      database: { condition: service_healthy }
+
+  database:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: hiresphere
+      POSTGRES_USER: hiresphere
+      POSTGRES_PASSWORD: hiresphere_local_password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hiresphere -d hiresphere"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [hiresphere]
+
 networks:
   hiresphere:
+
+volumes:
+  postgres-data:

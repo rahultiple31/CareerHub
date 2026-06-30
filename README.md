@@ -1,6 +1,6 @@
-# HireSphere React micro-frontends
+# hiresphere React micro-frontends
 
-HireSphere is a React 19 talent marketplace composed of a persistent gateway shell and eight independently deployable micro-frontends.
+hiresphere is a React 19 talent marketplace composed of a persistent gateway shell and eight independently deployable micro-frontends.
 
 | Micro-frontend | Source route | Container image |
 | --- | --- | --- |
@@ -20,21 +20,33 @@ HireSphere is a React 19 talent marketplace composed of a persistent gateway she
 - `src/bridge.js` provides a small same-origin message bridge between the shell and micro-frontends.
 - `vite.config.js` builds every component as an isolated static artifact.
 - `services/shared/` contains shared design tokens and responsive layout styles.
+- `FLOWCHART.md` documents the runtime, backend, deployment, CI/CD, and local Docker flows.
 
 The services keep independent Docker images and Kubernetes Deployments. React is compiled during the image build; production containers serve only optimized static assets through unprivileged Nginx.
 
+## Target deployment stack
+
+Frontend: React.js
+Backend: Node.js API service
+Database: PostgreSQL
+File Storage: Separate persistent PostgreSQL volume plus AWS S3 for PDF/images/data
+Web Server: Nginx
+Deployment: K3s Kubernetes
+Monitoring: Uptime + logs
+Server: Hostinger VPS KVM 8
+Ingress: Nginx Ingress
+SSL: cert-manager
+Object Storage: AWS S3 for PDF/images/data
+
 ## Data storage
 
-The Helm chart includes one database StatefulSet pod with two purpose-specific containers:
+The Helm chart deploys PostgreSQL as the system database and the API service as the only backend that receives database credentials.
 
-- PostgreSQL stores transactional SQL records: accounts, candidate profiles, skills, jobs, applications, projects, milestones, interviews, and payments.
-- MongoDB stores flexible NoSQL documents: feed posts, notifications, activity events, and search documents.
-- One internal Kubernetes Service exposes PostgreSQL on `5432` and MongoDB on `27017`.
-- Separate persistent volume claims protect PostgreSQL and MongoDB data across pod restarts.
-- Initialization scripts create relational constraints, indexes, MongoDB validators, and document indexes on the first startup.
-- Credentials are generated on the first Helm install and retained on upgrades. Production clusters can instead reference an externally managed Secret.
-
-The current frontend containers serve static React assets and do not connect directly to either database. Backend/API services should consume these internal endpoints and credentials; database credentials must never be sent to browser code.
+- PostgreSQL stores accounts, candidate profiles, skills, jobs, applications, projects, milestones, interviews, payments, activity events, and file asset metadata.
+- The PostgreSQL pod uses a retained persistent volume claim so data survives pod restarts and Helm upgrades.
+- AWS S3 is configured for PDFs, images, documents, exported data, and backup objects.
+- Credentials are generated on first Helm install and retained on upgrades. Production clusters can instead reference externally managed Secrets.
+- Browser containers serve static React assets through Nginx and never receive database credentials.
 
 ## Local development
 
@@ -61,38 +73,45 @@ Build only the gateway:
 npm run build
 ```
 
-Build all nine React applications and assemble the GitHub Pages artifact:
+Build all nine React applications:
 
 ```bash
-npm run build:pages
+npm run build:all
 ```
 
-The assembled static site is written to `dist/`. Individual component artifacts are written to `.build/<component>/`.
+Individual component artifacts are written to `.build/<component>/` and copied into production Nginx images by the Dockerfiles.
 
 ## Deployment
 
-- Docker Compose builds and runs one gateway plus eight micro-frontends.
-- The Helm chart deploys the same nine images to Kubernetes.
-- `.github/workflows/ci-cd.yml` compiles React, validates Helm, smoke-tests all routes, and publishes selected images.
-- `.github/workflows/static.yml` builds `dist/` and deploys it to GitHub Pages.
+- Docker Compose builds and runs one gateway, eight micro-frontends, the API service, and PostgreSQL.
+- The Helm chart deploys the same services to K3s Kubernetes.
+- `.github/workflows/ci-cd.yml` compiles React, validates Helm, smoke-tests Docker routes, and publishes selected images.
 
-Only the gateway publishes a host port. Internal containers communicate through the private `hiresphere` network.
+Only the gateway publishes a public HTTP route. Internal containers communicate through Kubernetes ClusterIP services.
 
-Install the application and database layer:
+Install to Hostinger KVM 8 running K3s:
 
 ```bash
 helm upgrade --install hiresphere charts/hiresphere \
   --namespace hiresphere \
-  --create-namespace
+  --values charts/hiresphere/values-hostinger-k3s.yaml \
+  --create-namespace \
+  --set ingress.hosts[0].host=app.example.com \
+  --set ingress.tls[0].hosts[0]=app.example.com \
+  --set ingress.tls[0].secretName=hiresphere-tls \
+  --set api.appOrigin=https://app.example.com \
+  --set storage.s3.bucket=your-s3-bucket \
+  --set storage.s3.region=ap-south-1
 ```
 
-For production, provide a pre-created Secret instead of chart-managed credentials. It must contain `postgres-database`, `postgres-username`, `postgres-password`, `mongodb-database`, `mongodb-root-username`, and `mongodb-root-password`:
+For production, provide pre-created Secrets instead of inline values. The database Secret must contain `postgres-database`, `postgres-username`, and `postgres-password`. The S3 Secret must contain `aws-access-key-id` and `aws-secret-access-key`:
 
 ```bash
 helm upgrade --install hiresphere charts/hiresphere \
   --namespace hiresphere \
   --create-namespace \
-  --set database.auth.existingSecret=hiresphere-database-credentials
+  --set database.auth.existingSecret=hiresphere-database-credentials \
+  --set storage.s3.existingSecret=hiresphere-s3-credentials
 ```
 
 Check the unified database workload:

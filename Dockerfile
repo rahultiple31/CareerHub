@@ -6,7 +6,7 @@ COPY . .
 RUN npm run build
 
 FROM nginxinc/nginx-unprivileged:1.27-alpine
-LABEL org.opencontainers.image.title="HireSphere React Gateway"
+LABEL org.opencontainers.image.title="hiresphere React Gateway"
 USER root
 COPY --chown=101:101 gateway/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build --chown=101:101 /app/.build/gateway/ /usr/share/nginx/html/

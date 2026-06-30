@@ -2,32 +2,53 @@
   "$schema": "https://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
+    "api": {
+      "type": "object",
+      "required": ["enabled", "image"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "replicaCount": { "type": "integer", "minimum": 1 },
+        "sessionSecret": { "type": "string" },
+        "existingSecret": { "type": "string" },
+        "cookieSecure": { "type": "boolean" },
+        "appOrigin": { "type": "string" }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "required": ["provider", "s3"],
+      "properties": {
+        "provider": { "enum": ["s3"] },
+        "s3": {
+          "type": "object",
+          "required": ["bucket", "region", "prefix"],
+          "properties": {
+            "bucket": { "type": "string" },
+            "region": { "type": "string", "minLength": 1 },
+            "prefix": { "type": "string", "minLength": 1 },
+            "existingSecret": { "type": "string" },
+            "accessKeyId": { "type": "string" },
+            "secretAccessKey": { "type": "string" }
+          }
+        }
+      }
+    },
     "database": {
       "type": "object",
-      "required": ["enabled", "auth", "postgresql", "mongodb", "service", "persistence"],
+      "required": ["enabled", "auth", "postgresql", "service", "persistence"],
       "properties": {
         "enabled": { "type": "boolean" },
         "auth": {
           "type": "object",
-          "required": ["postgresDatabase", "postgresUsername", "mongodbDatabase", "mongodbRootUsername"],
+          "required": ["postgresDatabase", "postgresUsername"],
           "properties": {
             "existingSecret": { "type": "string" },
             "postgresDatabase": { "type": "string", "minLength": 1 },
             "postgresUsername": { "type": "string", "minLength": 1 },
-            "postgresPassword": { "type": "string" },
-            "mongodbDatabase": { "type": "string", "minLength": 1 },
-            "mongodbRootUsername": { "type": "string", "minLength": 1 },
-            "mongodbRootPassword": { "type": "string" }
+            "postgresPassword": { "type": "string" }
           }
         },
         "postgresql": {
-          "type": "object",
-          "required": ["image", "port", "resources"],
-          "properties": {
-            "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
-          }
-        },
-        "mongodb": {
           "type": "object",
           "required": ["image", "port", "resources"],
           "properties": {
@@ -43,7 +64,7 @@
         },
         "persistence": {
           "type": "object",
-          "required": ["enabled", "accessModes", "postgresSize", "mongodbSize"],
+          "required": ["enabled", "accessModes", "postgresSize"],
           "properties": {
             "enabled": { "type": "boolean" },
             "storageClass": { "type": "string" },
@@ -52,8 +73,7 @@
               "minItems": 1,
               "items": { "enum": ["ReadWriteOnce", "ReadOnlyMany", "ReadWriteMany", "ReadWriteOncePod"] }
             },
-            "postgresSize": { "type": "string", "pattern": "^[0-9]+(Mi|Gi|Ti)$" },
-            "mongodbSize": { "type": "string", "pattern": "^[0-9]+(Mi|Gi|Ti)$" }
+            "postgresSize": { "type": "string", "pattern": "^[0-9]+(Mi|Gi|Ti)$" }
           }
         }
       }

@@ -1,4 +1,4 @@
-name: HireSphere CI/CD
+name: hiresphere CI/CD
 
 on:
   push:
@@ -31,6 +31,7 @@ on:
           - profile
           - hr-studio
           - scale
+          - api
 
 permissions:
   contents: read
@@ -41,6 +42,7 @@ env:
   CHART_PATH: charts/hiresphere
   IMAGE_REPOSITORY: ghcr.io/${{ github.repository_owner }}/hiresphere-gateway
   DOCKERHUB_REPOSITORY: rahultipledocker/hiresphere-gateway
+  API_REPOSITORY: rahultipledocker/hiresphere-api
   RELEASE_NAME: ${{ vars.HELM_RELEASE_NAME || 'hiresphere' }}
   KUBE_NAMESPACE: ${{ vars.KUBE_NAMESPACE || 'hiresphere' }}
 
@@ -69,11 +71,16 @@ jobs:
           done
           test -f "$CHART_PATH/Chart.yaml"
           test -f "$CHART_PATH/values.yaml"
+          test -f "$CHART_PATH/values-hostinger-k3s.yaml"
           test -f "$CHART_PATH/values.schema.json"
           test -f "$CHART_PATH/templates/database-secret.yaml"
           test -f "$CHART_PATH/templates/database-configmap.yaml"
           test -f "$CHART_PATH/templates/database-statefulset.yaml"
           test -f "$CHART_PATH/templates/database-service.yaml"
+          test -f "$CHART_PATH/templates/api-deployment.yaml"
+          test -f "$CHART_PATH/templates/api-service.yaml"
+          test -f "$APP_DIR/services/api/Dockerfile"
+          test -f "$APP_DIR/services/api/server.mjs"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -84,7 +91,7 @@ jobs:
       - name: Install and compile React applications
         run: |
           npm ci --no-audit --no-fund
-          npm run build:pages
+          npm run build:all
 
       - name: Set up Helm
         uses: azure/setup-helm@v4
@@ -92,21 +99,25 @@ jobs:
           version: v3.15.4
 
       - name: Helm lint
-        run: helm lint "$CHART_PATH"
+        run: |
+          helm lint "$CHART_PATH"
+          helm lint "$CHART_PATH" --values "$CHART_PATH/values-hostinger-k3s.yaml"
 
       - name: Helm template smoke test
         run: |
           helm template "$RELEASE_NAME" "$CHART_PATH" \
             --namespace "$KUBE_NAMESPACE" \
+            --values "$CHART_PATH/values-hostinger-k3s.yaml" \
             --set fullnameOverride="$RELEASE_NAME" \
             --set image.repository="$DOCKERHUB_REPOSITORY" \
+            --set api.image.repository="$API_REPOSITORY" \
             --set image.tag="1.0" > /tmp/hiresphere-rendered.yaml
           grep -q "kind: StatefulSet" /tmp/hiresphere-rendered.yaml
           grep -q "app.kubernetes.io/component: database" /tmp/hiresphere-rendered.yaml
           grep -q "name: postgresql" /tmp/hiresphere-rendered.yaml
-          grep -q "name: mongodb" /tmp/hiresphere-rendered.yaml
           grep -q "01-postgresql-schema.sql" /tmp/hiresphere-rendered.yaml
-          grep -q "02-mongodb-schema.js" /tmp/hiresphere-rendered.yaml
+          grep -q "name: api-service" /tmp/hiresphere-rendered.yaml
+          grep -q "AWS_S3_BUCKET" /tmp/hiresphere-rendered.yaml
           helm template "$RELEASE_NAME" "$CHART_PATH" \
             --namespace "$KUBE_NAMESPACE" \
             --set database.enabled=false > /tmp/hiresphere-no-database.yaml
@@ -125,7 +136,7 @@ jobs:
 
   integration:
     name: Build and Test Complete Platform
-    if: github.event_name != 'workflow_dispatch' || inputs.component == 'all' || inputs.component == 'gateway'
+    if: github.event_name != 'workflow_dispatch' || inputs.component == 'all' || inputs.component == 'gateway' || inputs.component == 'api'
     runs-on: ubuntu-latest
     needs: validate
     steps:
@@ -148,6 +159,7 @@ jobs:
           for route in workspace jobs projects network interview profile hr-studio scale; do
             curl -fsS "http://localhost:8080/${route}/" | grep -qi "<title>"
           done
+          curl -fsS http://localhost:8080/api/v1/storage | grep -q '"provider":"s3"'
 
       - name: Cleanup smoke-test services
         if: always()
@@ -211,7 +223,7 @@ jobs:
       fail-fast: false
       max-parallel: 4
       matrix:
-        service: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.component != 'all' && inputs.component != 'gateway' && format('["{0}"]', inputs.component) || '["workspace","jobs","projects","network","interview","profile","hr-studio","scale"]') }}
+        service: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.component != 'all' && inputs.component != 'gateway' && format('["{0}"]', inputs.component) || '["workspace","jobs","projects","network","interview","profile","hr-studio","scale","api"]') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -221,9 +233,18 @@ jobs:
 
       - name: Test selected service container
         run: |
-          docker run -d --name selected-service-test -p 8080:8080 "hiresphere-${{ matrix.service }}:ci"
+          if [ "${{ matrix.service }}" = "api" ]; then
+            docker run -d --name selected-service-test -p 8080:8080 \
+              -e SESSION_SECRET=ci-session-secret-with-more-than-32-characters \
+              "hiresphere-${{ matrix.service }}:ci"
+          else
+            docker run -d --name selected-service-test -p 8080:8080 "hiresphere-${{ matrix.service }}:ci"
+          fi
           for attempt in 1 2 3 4 5 6 7 8 9 10; do
-            if curl -fsS http://localhost:8080/healthz && curl -fsS http://localhost:8080/ | grep -qi "<title>"; then
+            if [ "${{ matrix.service }}" = "api" ] && curl -fsS http://localhost:8080/healthz; then
+              exit 0
+            fi
+            if [ "${{ matrix.service }}" != "api" ] && curl -fsS http://localhost:8080/healthz && curl -fsS http://localhost:8080/ | grep -qi "<title>"; then
               exit 0
             fi
             echo "Service health check attempt ${attempt} failed"

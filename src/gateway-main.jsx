@@ -129,7 +129,7 @@ function App() {
     <aside className="sidebar" aria-label="Main navigation">
       <a className="brand" href="#workspace">
         <span className="brand-mark">HS</span>
-        <span><strong>HireSphere</strong><small>Talent OS</small></span>
+        <span><strong>hiresphere</strong><small>Talent OS</small></span>
       </a>
       <nav className="nav-groups">
         <SidebarProfile profile={candidateProfile} onEdit={() => go("profile")} />

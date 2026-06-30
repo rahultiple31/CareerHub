@@ -1,4 +1,4 @@
-HireSphere has been deployed.
+hiresphere has been deployed.
 
 Release:
   {{ .Release.Name }}
@@ -12,7 +12,7 @@ Service:
 {{- if .Values.ingress.enabled }}
 Ingress:
 {{- range .Values.ingress.hosts }}
-  http://{{ .host }}{{ (index .paths 0).path }}
+  https://{{ .host }}{{ (index .paths 0).path }}
 {{- end }}
 {{- else }}
 {{- if eq .Values.service.type "NodePort" }}
@@ -32,7 +32,6 @@ Database workload:
   Pod: {{ include "hiresphere.databaseFullname" . }}-0
   Service: {{ include "hiresphere.databaseFullname" . }}
   PostgreSQL: {{ include "hiresphere.databaseFullname" . }}:{{ .Values.database.postgresql.port }}/{{ .Values.database.auth.postgresDatabase }}
-  MongoDB: {{ include "hiresphere.databaseFullname" . }}:{{ .Values.database.mongodb.port }}/{{ .Values.database.auth.mongodbDatabase }}
   Credentials secret: {{ include "hiresphere.databaseSecretName" . }}
 
 Database status:
@@ -41,4 +40,13 @@ Database status:
 Read generated PostgreSQL credentials:
   kubectl get secret {{ include "hiresphere.databaseSecretName" . }} -n {{ .Release.Namespace }} -o jsonpath='{.data.postgres-username}' | base64 --decode
   kubectl get secret {{ include "hiresphere.databaseSecretName" . }} -n {{ .Release.Namespace }} -o jsonpath='{.data.postgres-password}' | base64 --decode
+{{- end }}
+
+{{- if .Values.api.enabled }}
+
+API:
+  Service: api-service:8080
+  Readiness: /readyz
+  Public route: /api/
+  S3 bucket configured: {{ ternary "yes" "no" (not (empty .Values.storage.s3.bucket)) }}
 {{- end }}

@@ -1,0 +1,102 @@
+# Production overlay for Hostinger VPS KVM 8 running K3s.
+# Replace app.example.com and image tags before deploying.
+
+replicaCount: 2
+
+image:
+  repository: rahultipledocker/hiresphere-gateway
+  tag: "1.0"
+  pullPolicy: Always
+
+api:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: rahultipledocker/hiresphere-api
+    tag: "1.0"
+    pullPolicy: Always
+  existingSecret: ""
+  cookieSecure: true
+  appOrigin: "https://app.example.com"
+
+microservices:
+  - name: workspace
+    repository: rahultipledocker/hiresphere-workspace
+    tag: "1.0"
+  - name: jobs
+    repository: rahultipledocker/hiresphere-jobs
+    tag: "1.0"
+  - name: projects
+    repository: rahultipledocker/hiresphere-projects
+    tag: "1.0"
+  - name: network
+    repository: rahultipledocker/hiresphere-network
+    tag: "1.0"
+  - name: interview
+    repository: rahultipledocker/hiresphere-interview
+    tag: "1.0"
+  - name: profile
+    repository: rahultipledocker/hiresphere-profile
+    tag: "1.0"
+  - name: hr-studio
+    repository: rahultipledocker/hiresphere-hr-studio
+    tag: "1.0"
+  - name: scale
+    repository: rahultipledocker/hiresphere-scale
+    tag: "1.0"
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: 25m
+  hosts:
+    - host: app.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: hiresphere-tls
+      hosts:
+        - app.example.com
+
+storage:
+  provider: s3
+  s3:
+    bucket: your-s3-bucket
+    region: ap-south-1
+    prefix: hiresphere
+    existingSecret: hiresphere-s3-credentials
+
+database:
+  enabled: true
+  auth:
+    existingSecret: hiresphere-database-credentials
+    postgresDatabase: hiresphere
+    postgresUsername: hiresphere
+  persistence:
+    enabled: true
+    storageClass: local-path
+    accessModes:
+      - ReadWriteOnce
+    postgresSize: 20Gi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+monitoring:
+  uptime:
+    enabled: true
+    path: /healthz
+  logs:
+    mode: kubectl
+    retentionDays: 14

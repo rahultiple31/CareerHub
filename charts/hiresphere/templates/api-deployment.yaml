@@ -1,0 +1,100 @@
+{{- if .Values.api.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hiresphere.componentFullname" (dict "root" . "component" "api") }}
+  labels:
+    {{- include "hiresphere.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  replicas: {{ .Values.api.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "hiresphere.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        {{- include "hiresphere.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+    spec:
+      serviceAccountName: {{ include "hiresphere.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: api
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: {{ include "hiresphere.apiImage" . | quote }}
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          env:
+            - name: PORT
+              value: "8080"
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hiresphere.apiSecretName" . }}
+                  key: session-secret
+            - name: COOKIE_SECURE
+              value: {{ .Values.api.cookieSecure | quote }}
+            - name: APP_ORIGIN
+              value: {{ .Values.api.appOrigin | quote }}
+            - name: POSTGRES_HOST
+              value: {{ include "hiresphere.databaseFullname" . | quote }}
+            - name: POSTGRES_PORT
+              value: {{ .Values.database.postgresql.port | quote }}
+            - name: POSTGRES_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hiresphere.databaseSecretName" . }}
+                  key: postgres-database
+            - name: POSTGRES_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hiresphere.databaseSecretName" . }}
+                  key: postgres-username
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hiresphere.databaseSecretName" . }}
+                  key: postgres-password
+            - name: AWS_REGION
+              value: {{ .Values.storage.s3.region | quote }}
+            - name: AWS_S3_BUCKET
+              value: {{ .Values.storage.s3.bucket | quote }}
+            - name: AWS_S3_PREFIX
+              value: {{ .Values.storage.s3.prefix | quote }}
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hiresphere.storageSecretName" . }}
+                  key: aws-access-key-id
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hiresphere.storageSecretName" . }}
+                  key: aws-secret-access-key
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+{{- end }}

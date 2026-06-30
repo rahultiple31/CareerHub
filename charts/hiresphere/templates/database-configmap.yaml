@@ -117,74 +117,35 @@ data:
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
+    CREATE TABLE IF NOT EXISTS activity_events (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      event_type TEXT NOT NULL,
+      actor_id UUID REFERENCES users(id) ON DELETE SET NULL,
+      subject_id UUID,
+      payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+      occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS file_assets (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      owner_id UUID REFERENCES users(id) ON DELETE SET NULL,
+      storage_provider TEXT NOT NULL DEFAULT 's3',
+      bucket TEXT NOT NULL,
+      object_key TEXT NOT NULL,
+      content_type TEXT,
+      byte_size BIGINT CHECK (byte_size IS NULL OR byte_size >= 0),
+      purpose TEXT NOT NULL CHECK (purpose IN ('resume', 'image', 'certificate', 'portfolio', 'data', 'backup')),
+      metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (bucket, object_key)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_jobs_status_created ON jobs(status, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_applications_candidate ON applications(candidate_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_applications_job_status ON applications(job_id, status);
     CREATE INDEX IF NOT EXISTS idx_projects_status_created ON projects(status, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_interviews_candidate_schedule ON interviews(candidate_id, scheduled_at DESC);
     CREATE INDEX IF NOT EXISTS idx_profiles_data_gin ON candidate_profiles USING GIN(profile_data);
-
-  02-mongodb-schema.js: |
-    const databaseName = process.env.MONGO_INITDB_DATABASE || {{ .Values.database.auth.mongodbDatabase | quote }};
-    const hiresphereDb = db.getSiblingDB(databaseName);
-
-    hiresphereDb.createCollection("feed_posts", {
-      validator: {
-        $jsonSchema: {
-          bsonType: "object",
-          required: ["authorId", "type", "text", "createdAt"],
-          properties: {
-            authorId: { bsonType: "string" },
-            type: { enum: ["update", "opportunity", "article", "announcement"] },
-            text: { bsonType: "string" },
-            tags: { bsonType: "array", items: { bsonType: "string" } },
-            createdAt: { bsonType: "date" },
-            updatedAt: { bsonType: "date" }
-          }
-        }
-      }
-    });
-
-    hiresphereDb.createCollection("notifications", {
-      validator: {
-        $jsonSchema: {
-          bsonType: "object",
-          required: ["userId", "title", "body", "read", "createdAt"],
-          properties: {
-            userId: { bsonType: "string" },
-            title: { bsonType: "string" },
-            body: { bsonType: "string" },
-            read: { bsonType: "bool" },
-            metadata: { bsonType: "object" },
-            createdAt: { bsonType: "date" }
-          }
-        }
-      }
-    });
-
-    hiresphereDb.createCollection("activity_events", {
-      validator: {
-        $jsonSchema: {
-          bsonType: "object",
-          required: ["eventType", "actorId", "occurredAt"],
-          properties: {
-            eventType: { bsonType: "string" },
-            actorId: { bsonType: "string" },
-            subjectId: { bsonType: "string" },
-            payload: { bsonType: "object" },
-            occurredAt: { bsonType: "date" }
-          }
-        }
-      }
-    });
-
-    hiresphereDb.createCollection("search_documents");
-    hiresphereDb.feed_posts.createIndex({ createdAt: -1 });
-    hiresphereDb.feed_posts.createIndex({ authorId: 1, createdAt: -1 });
-    hiresphereDb.feed_posts.createIndex({ text: "text", tags: "text" });
-    hiresphereDb.notifications.createIndex({ userId: 1, read: 1, createdAt: -1 });
-    hiresphereDb.activity_events.createIndex({ actorId: 1, occurredAt: -1 });
-    hiresphereDb.activity_events.createIndex({ eventType: 1, occurredAt: -1 });
-    hiresphereDb.search_documents.createIndex({ entityType: 1, entityId: 1 }, { unique: true });
-    hiresphereDb.search_documents.createIndex({ title: "text", content: "text", skills: "text" });
+    CREATE INDEX IF NOT EXISTS idx_activity_events_actor ON activity_events(actor_id, occurred_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_file_assets_owner ON file_assets(owner_id, created_at DESC);
 {{- end }}

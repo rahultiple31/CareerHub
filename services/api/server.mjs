@@ -1,6 +1,5 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import http from "node:http";
-import { MongoClient } from "mongodb";
 import pg from "pg";
 
 const { Pool } = pg;
@@ -8,7 +7,9 @@ const port = Number(process.env.PORT || 8080);
 const sessionSecret = String(process.env.SESSION_SECRET || "");
 const cookieSecure = process.env.COOKIE_SECURE === "true";
 const allowedOrigin = String(process.env.APP_ORIGIN || "").replace(/\/$/, "");
-const mongoDatabase = process.env.MONGODB_DATABASE || "hiresphere";
+const s3Bucket = String(process.env.AWS_S3_BUCKET || "");
+const s3Region = String(process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || "");
+const s3Prefix = String(process.env.AWS_S3_PREFIX || "hiresphere").replace(/^\/+|\/+$/g, "");
 
 if (sessionSecret.length < 32) {
   throw new Error("SESSION_SECRET must contain at least 32 characters");
@@ -25,16 +26,6 @@ const postgres = new Pool({
   connectionTimeoutMillis: 5_000
 });
 
-const mongoUsername = encodeURIComponent(process.env.MONGODB_ROOT_USERNAME || "hiresphere_admin");
-const mongoPassword = encodeURIComponent(process.env.MONGODB_ROOT_PASSWORD || "");
-const mongoHost = process.env.MONGODB_HOST || "database";
-const mongoPort = Number(process.env.MONGODB_PORT || 27017);
-const mongo = new MongoClient(`mongodb://${mongoUsername}:${mongoPassword}@${mongoHost}:${mongoPort}/?authSource=admin`, {
-  connectTimeoutMS: 5_000,
-  serverSelectionTimeoutMS: 5_000,
-  maxPoolSize: 10
-});
-let mongoConnection;
 let schemaConnection;
 
 const requestBuckets = new Map();
@@ -151,6 +142,29 @@ async function ensureSchema() {
       profile_data JSONB NOT NULL DEFAULT '{}'::jsonb,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS activity_events (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      event_type TEXT NOT NULL,
+      actor_id UUID REFERENCES users(id) ON DELETE SET NULL,
+      subject_id UUID,
+      payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+      occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS file_assets (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      owner_id UUID REFERENCES users(id) ON DELETE SET NULL,
+      storage_provider TEXT NOT NULL DEFAULT 's3',
+      bucket TEXT NOT NULL,
+      object_key TEXT NOT NULL,
+      content_type TEXT,
+      byte_size BIGINT CHECK (byte_size IS NULL OR byte_size >= 0),
+      purpose TEXT NOT NULL CHECK (purpose IN ('resume', 'image', 'certificate', 'portfolio', 'data', 'backup')),
+      metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (bucket, object_key)
+    );
+    CREATE INDEX IF NOT EXISTS idx_activity_events_actor ON activity_events(actor_id, occurred_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_file_assets_owner ON file_assets(owner_id, created_at DESC);
   `).catch((error) => {
     schemaConnection = undefined;
     throw error;
@@ -224,20 +238,11 @@ async function saveProfile(id, input) {
     connection.release();
   }
 
-  try {
-    mongoConnection ||= mongo.connect();
-    const client = await mongoConnection;
-    await client.db(mongoDatabase).collection("activity_events").insertOne({
-      eventType: "profile.updated",
-      actorId: id,
-      subjectId: id,
-      payload: { fields: ["name", "role", "company", "bio"] },
-      occurredAt: new Date()
-    });
-  } catch (error) {
-    mongoConnection = undefined;
-    console.error("MongoDB activity write failed", error.message);
-  }
+  await postgres.query(
+    `INSERT INTO activity_events (event_type, actor_id, subject_id, payload)
+     VALUES ('profile.updated', $1, $1, $2)`,
+    [id, { fields: ["name", "role", "company", "bio"] }]
+  );
 
   return profile;
 }
@@ -245,9 +250,6 @@ async function saveProfile(id, input) {
 async function ready() {
   await ensureSchema();
   await postgres.query("SELECT 1");
-  mongoConnection ||= mongo.connect();
-  const client = await mongoConnection;
-  await client.db("admin").command({ ping: 1 });
 }
 
 const server = http.createServer(async (request, response) => {
@@ -263,6 +265,14 @@ const server = http.createServer(async (request, response) => {
       } catch {
         return json(response, 503, { status: "not-ready" });
       }
+    }
+    if (request.method === "GET" && url.pathname === "/api/v1/storage") {
+      return json(response, 200, {
+        provider: "s3",
+        bucketConfigured: Boolean(s3Bucket),
+        regionConfigured: Boolean(s3Region),
+        prefix: s3Prefix
+      });
     }
 
     if (url.pathname === "/api/v1/profile" && request.method === "GET") {
@@ -285,11 +295,11 @@ const server = http.createServer(async (request, response) => {
   }
 });
 
-server.listen(port, "0.0.0.0", () => console.log(`HireSphere API listening on ${port}`));
+server.listen(port, "0.0.0.0", () => console.log(`hiresphere API listening on ${port}`));
 
 async function shutdown() {
   server.close();
-  await Promise.allSettled([postgres.end(), mongo.close()]);
+  await postgres.end();
   process.exit(0);
 }
 

@@ -10,6 +10,14 @@
 {{- default (include "hiresphere.databaseFullname" .) .Values.database.auth.existingSecret -}}
 {{- end -}}
 
+{{- define "hiresphere.apiSecretName" -}}
+{{- default (include "hiresphere.componentFullname" (dict "root" . "component" "api")) .Values.api.existingSecret -}}
+{{- end -}}
+
+{{- define "hiresphere.storageSecretName" -}}
+{{- default (include "hiresphere.componentFullname" (dict "root" . "component" "s3")) .Values.storage.s3.existingSecret -}}
+{{- end -}}
+
 {{- define "hiresphere.fullname" -}}
 {{- if .Values.fullnameOverride -}}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
@@ -57,4 +65,8 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- else -}}
 {{- printf "%s:%s" .Values.image.repository (.Values.image.tag | default .Chart.AppVersion) -}}
 {{- end -}}
+{{- end -}}
+
+{{- define "hiresphere.apiImage" -}}
+{{- printf "%s:%s" .Values.api.image.repository (.Values.api.image.tag | default .Chart.AppVersion) -}}
 {{- end -}}

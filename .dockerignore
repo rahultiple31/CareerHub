@@ -1,8 +1,6 @@
 .git
 .github
 charts
-desktop-check.png
-mobile-check.png
 README.md
 *.log
 node_modules
@@ -10,4 +8,3 @@ node_modules
 Thumbs.db
 .build
 dist
-.tmp-ui-dist

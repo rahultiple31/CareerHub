@@ -82,63 +82,12 @@ spec:
               subPath: 01-postgresql-schema.sql
               readOnly: true
 
-        - name: mongodb
-          image: {{ printf "%s:%s" .Values.database.mongodb.image.repository .Values.database.mongodb.image.tag | quote }}
-          imagePullPolicy: {{ .Values.database.mongodb.image.pullPolicy }}
-          securityContext:
-            {{- toYaml .Values.database.containerSecurityContext | nindent 12 }}
-            runAsUser: 999
-            runAsGroup: 999
-          env:
-            - name: MONGO_INITDB_DATABASE
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "hiresphere.databaseSecretName" . }}
-                  key: mongodb-database
-            - name: MONGO_INITDB_ROOT_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "hiresphere.databaseSecretName" . }}
-                  key: mongodb-root-username
-            - name: MONGO_INITDB_ROOT_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "hiresphere.databaseSecretName" . }}
-                  key: mongodb-root-password
-          ports:
-            - name: mongodb
-              containerPort: {{ .Values.database.mongodb.port }}
-              protocol: TCP
-          readinessProbe:
-            exec:
-              command: ["sh", "-c", "mongosh --quiet --username \"$MONGO_INITDB_ROOT_USERNAME\" --password \"$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval \"db.adminCommand('ping').ok\""]
-            initialDelaySeconds: 15
-            periodSeconds: 10
-            timeoutSeconds: 5
-          livenessProbe:
-            exec:
-              command: ["sh", "-c", "mongosh --quiet --username \"$MONGO_INITDB_ROOT_USERNAME\" --password \"$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval \"db.adminCommand('ping').ok\""]
-            initialDelaySeconds: 40
-            periodSeconds: 15
-            timeoutSeconds: 5
-          resources:
-            {{- toYaml .Values.database.mongodb.resources | nindent 12 }}
-          volumeMounts:
-            - name: mongodb-data
-              mountPath: /data/db
-            - name: database-init
-              mountPath: /docker-entrypoint-initdb.d/02-mongodb-schema.js
-              subPath: 02-mongodb-schema.js
-              readOnly: true
-
       volumes:
         - name: database-init
           configMap:
             name: {{ include "hiresphere.databaseFullname" . }}-init
         {{- if not .Values.database.persistence.enabled }}
         - name: postgresql-data
-          emptyDir: {}
-        - name: mongodb-data
           emptyDir: {}
         {{- end }}
       {{- with .Values.database.nodeSelector }}
@@ -169,19 +118,5 @@ spec:
         resources:
           requests:
             storage: {{ .Values.database.persistence.postgresSize }}
-    - metadata:
-        name: mongodb-data
-        labels:
-          {{- include "hiresphere.labels" . | nindent 10 }}
-          app.kubernetes.io/component: database
-      spec:
-        accessModes:
-          {{- toYaml .Values.database.persistence.accessModes | nindent 10 }}
-        {{- with .Values.database.persistence.storageClass }}
-        storageClassName: {{ . | quote }}
-        {{- end }}
-        resources:
-          requests:
-            storage: {{ .Values.database.persistence.mongodbSize }}
   {{- end }}
 {{- end }}
