@@ -79,6 +79,11 @@ jobs:
           test -f "$CHART_PATH/templates/database-service.yaml"
           test -f "$CHART_PATH/templates/api-deployment.yaml"
           test -f "$CHART_PATH/templates/api-service.yaml"
+          test -f "$CHART_PATH/templates/cache-deployment.yaml"
+          test -f "$CHART_PATH/templates/cache-service.yaml"
+          test -f "$CHART_PATH/templates/search-statefulset.yaml"
+          test -f "$CHART_PATH/templates/search-service.yaml"
+          test -f "$CHART_PATH/templates/search-configmap.yaml"
           test -f "$APP_DIR/services/api/Dockerfile"
           test -f "$APP_DIR/services/api/server.mjs"
 
@@ -118,6 +123,10 @@ jobs:
           grep -q "01-postgresql-schema.sql" /tmp/hiresphere-rendered.yaml
           grep -q "name: api-service" /tmp/hiresphere-rendered.yaml
           grep -q "AWS_S3_BUCKET" /tmp/hiresphere-rendered.yaml
+          grep -q "app.kubernetes.io/component: redis" /tmp/hiresphere-rendered.yaml
+          grep -q "app.kubernetes.io/component: opensearch" /tmp/hiresphere-rendered.yaml
+          grep -q "REDIS_HOST" /tmp/hiresphere-rendered.yaml
+          grep -q "SEARCH_URL" /tmp/hiresphere-rendered.yaml
           helm template "$RELEASE_NAME" "$CHART_PATH" \
             --namespace "$KUBE_NAMESPACE" \
             --set database.enabled=false > /tmp/hiresphere-no-database.yaml
@@ -143,6 +152,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Prepare OpenSearch host settings
+        run: sudo sysctl -w vm.max_map_count=262144
+
       - name: Build and start microservices
         run: docker compose up -d --build
 
@@ -159,7 +171,8 @@ jobs:
           for route in workspace jobs projects network interview profile hr-studio scale; do
             curl -fsS "http://localhost:8080/${route}/" | grep -qi "<title>"
           done
-          curl -fsS http://localhost:8080/api/v1/storage | grep -q '"provider":"s3"'
+          curl -fsS http://localhost:8080/api/v1/platform | grep -q '"provider":"redis"'
+          curl -fsS http://localhost:8080/api/v1/platform | grep -q '"provider":"opensearch"'
 
       - name: Cleanup smoke-test services
         if: always()

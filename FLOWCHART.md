@@ -5,7 +5,9 @@
 Frontend: React.js
 Backend: Node.js API service
 Database: PostgreSQL
+Cache: Redis
 File Storage: PostgreSQL persistent volume plus AWS S3 for PDF/images/data
+Search: Elasticsearch / OpenSearch
 Web Server: Nginx
 Deployment: K3s Kubernetes
 Monitoring: Uptime endpoints plus Kubernetes logs
@@ -38,6 +40,9 @@ flowchart TD
 
   API --> PG[(PostgreSQL StatefulSet)]
   PG --> PVC[(PostgreSQL PVC / local-path)]
+  API --> Redis[(Redis Cache)]
+  API --> Search[(OpenSearch Search)]
+  Search --> SearchPVC[(OpenSearch PVC / local-path)]
   API --> S3[(AWS S3 Bucket)]
 
   Ingress --> Health[/healthz uptime check/]
@@ -97,6 +102,7 @@ flowchart TD
   API[services/api/server.mjs] --> Health[/GET /healthz/]
   API --> Ready[/GET /readyz/]
   API --> Storage[/GET /api/v1/storage/]
+  API --> Platform[/GET /api/v1/platform/]
   API --> GetProfile[/GET /api/v1/profile/]
   API --> PutProfile[/PUT /api/v1/profile/]
 
@@ -109,7 +115,11 @@ flowchart TD
   PutProfile --> CandidateProfiles
   PutProfile --> Activity[(activity_events table)]
   Storage --> S3Config[AWS S3 bucket / region / prefix config]
+  Platform --> RedisConfig[Redis cache config]
+  Platform --> SearchConfig[OpenSearch index config]
   S3Config --> S3[(AWS S3 PDFs images data)]
+  RedisConfig --> Redis[(Redis cache)]
+  SearchConfig --> Search[(OpenSearch / Elasticsearch)]
   API --> FileAssets[(file_assets table)]
 ```
 
@@ -127,6 +137,8 @@ flowchart TD
   K3s --> MicroDeploy[8 React micro-frontend Deployments]
   K3s --> APIDeploy[API Deployment]
   K3s --> DBStateful[PostgreSQL StatefulSet]
+  K3s --> RedisDeploy[Redis Deployment]
+  K3s --> SearchStateful[OpenSearch StatefulSet]
   K3s --> Ingress[Nginx Ingress]
   K3s --> HPA[Gateway HPA]
   K3s --> Secrets[Kubernetes Secrets]
@@ -158,6 +170,8 @@ flowchart TD
 flowchart TD
   Compose[docker compose up --build] --> DB[postgres:16-alpine]
   DB --> API[hiresphere-api:local]
+  Redis[redis:7-alpine] --> API
+  OpenSearch[opensearchproject/opensearch] --> API
   API --> Gateway[hiresphere-gateway:local]
 
   Workspace[hiresphere-workspace:local] --> Gateway

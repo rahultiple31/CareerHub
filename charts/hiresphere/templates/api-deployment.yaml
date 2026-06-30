@@ -78,6 +78,20 @@ spec:
                 secretKeyRef:
                   name: {{ include "hiresphere.storageSecretName" . }}
                   key: aws-secret-access-key
+            - name: REDIS_HOST
+              value: {{ include "hiresphere.componentFullname" (dict "root" . "component" "redis") | quote }}
+            - name: REDIS_PORT
+              value: {{ .Values.cache.port | quote }}
+            - name: REDIS_REQUIRED
+              value: {{ .Values.cache.enabled | quote }}
+            - name: SEARCH_PROVIDER
+              value: {{ .Values.search.provider | quote }}
+            - name: SEARCH_URL
+              value: {{ printf "http://%s:%v" (include "hiresphere.componentFullname" (dict "root" . "component" "opensearch")) .Values.search.port | quote }}
+            - name: SEARCH_INDEX
+              value: {{ .Values.search.index | quote }}
+            - name: SEARCH_REQUIRED
+              value: {{ .Values.search.enabled | quote }}
           ports:
             - name: http
               containerPort: 8080

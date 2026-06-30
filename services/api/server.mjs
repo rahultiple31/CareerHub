@@ -1,5 +1,6 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import http from "node:http";
+import net from "node:net";
 import pg from "pg";
 
 const { Pool } = pg;
@@ -10,6 +11,13 @@ const allowedOrigin = String(process.env.APP_ORIGIN || "").replace(/\/$/, "");
 const s3Bucket = String(process.env.AWS_S3_BUCKET || "");
 const s3Region = String(process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || "");
 const s3Prefix = String(process.env.AWS_S3_PREFIX || "hiresphere").replace(/^\/+|\/+$/g, "");
+const redisHost = String(process.env.REDIS_HOST || "redis");
+const redisPort = Number(process.env.REDIS_PORT || 6379);
+const redisRequired = process.env.REDIS_REQUIRED === "true";
+const searchProvider = String(process.env.SEARCH_PROVIDER || "opensearch");
+const searchUrl = String(process.env.SEARCH_URL || "http://opensearch:9200").replace(/\/$/, "");
+const searchIndex = String(process.env.SEARCH_INDEX || "hiresphere");
+const searchRequired = process.env.SEARCH_REQUIRED === "true";
 
 if (sessionSecret.length < 32) {
   throw new Error("SESSION_SECRET must contain at least 32 characters");
@@ -250,6 +258,29 @@ async function saveProfile(id, input) {
 async function ready() {
   await ensureSchema();
   await postgres.query("SELECT 1");
+  if (redisRequired) await checkTcp(redisHost, redisPort, "Redis");
+  if (searchRequired) await checkSearch();
+}
+
+function checkTcp(host, portNumber, label) {
+  return new Promise((resolve, reject) => {
+    const socket = net.createConnection({ host, port: portNumber, timeout: 1_500 }, () => {
+      socket.destroy();
+      resolve();
+    });
+    socket.on("timeout", () => {
+      socket.destroy();
+      reject(new Error(`${label} connection timed out`));
+    });
+    socket.on("error", (error) => reject(new Error(`${label} connection failed: ${error.message}`)));
+  });
+}
+
+async function checkSearch() {
+  const response = await fetch(`${searchUrl}/_cluster/health`, {
+    signal: AbortSignal.timeout(2_000)
+  });
+  if (!response.ok) throw new Error(`${searchProvider} returned ${response.status}`);
 }
 
 const server = http.createServer(async (request, response) => {
@@ -272,6 +303,29 @@ const server = http.createServer(async (request, response) => {
         bucketConfigured: Boolean(s3Bucket),
         regionConfigured: Boolean(s3Region),
         prefix: s3Prefix
+      });
+    }
+    if (request.method === "GET" && url.pathname === "/api/v1/platform") {
+      return json(response, 200, {
+        cache: {
+          provider: "redis",
+          host: redisHost,
+          port: redisPort,
+          required: redisRequired
+        },
+        storage: {
+          provider: "s3",
+          bucketConfigured: Boolean(s3Bucket),
+          regionConfigured: Boolean(s3Region),
+          prefix: s3Prefix
+        },
+        search: {
+          provider: searchProvider,
+          urlConfigured: Boolean(searchUrl),
+          index: searchIndex,
+          required: searchRequired
+        },
+        deployment: "k3s"
       });
     }
 

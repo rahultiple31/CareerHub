@@ -50,3 +50,18 @@ API:
   Public route: /api/
   S3 bucket configured: {{ ternary "yes" "no" (not (empty .Values.storage.s3.bucket)) }}
 {{- end }}
+
+{{- if .Values.cache.enabled }}
+
+Cache:
+  Provider: Redis
+  Service: {{ include "hiresphere.componentFullname" (dict "root" . "component" "redis") }}:{{ .Values.cache.port }}
+{{- end }}
+
+{{- if .Values.search.enabled }}
+
+Search:
+  Provider: {{ .Values.search.provider }}
+  Service: {{ include "hiresphere.componentFullname" (dict "root" . "component" "opensearch") }}:{{ .Values.search.port }}
+  Index: {{ .Values.search.index }}
+{{- end }}

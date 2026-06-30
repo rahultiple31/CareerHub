@@ -1,0 +1,19 @@
+{{- if .Values.cache.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "hiresphere.componentFullname" (dict "root" . "component" "redis") }}
+  labels:
+    {{- include "hiresphere.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.cache.port }}
+      targetPort: redis
+      protocol: TCP
+      name: redis
+  selector:
+    {{- include "hiresphere.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+{{- end }}

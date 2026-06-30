@@ -29,7 +29,9 @@ The services keep independent Docker images and Kubernetes Deployments. React is
 Frontend: React.js
 Backend: Node.js API service
 Database: PostgreSQL
+Cache: Redis
 File Storage: Separate persistent PostgreSQL volume plus AWS S3 for PDF/images/data
+Search: Elasticsearch / OpenSearch
 Web Server: Nginx
 Deployment: K3s Kubernetes
 Monitoring: Uptime + logs
@@ -43,6 +45,8 @@ Object Storage: AWS S3 for PDF/images/data
 The Helm chart deploys PostgreSQL as the system database and the API service as the only backend that receives database credentials.
 
 - PostgreSQL stores accounts, candidate profiles, skills, jobs, applications, projects, milestones, interviews, payments, activity events, and file asset metadata.
+- Redis is deployed as the internal cache layer for fast ephemeral platform state.
+- OpenSearch is deployed as the internal search engine for future job, profile, project, and document indexing.
 - The PostgreSQL pod uses a retained persistent volume claim so data survives pod restarts and Helm upgrades.
 - AWS S3 is configured for PDFs, images, documents, exported data, and backup objects.
 - Credentials are generated on first Helm install and retained on upgrades. Production clusters can instead reference externally managed Secrets.
@@ -65,6 +69,12 @@ docker compose up --build
 
 Open `http://localhost:8080`.
 
+OpenSearch requires `vm.max_map_count=262144` on Linux hosts. Set it before running the full compose or K3s stack:
+
+```bash
+sudo sysctl -w vm.max_map_count=262144
+```
+
 ## Production builds
 
 Build only the gateway:
@@ -83,7 +93,7 @@ Individual component artifacts are written to `.build/<component>/` and copied i
 
 ## Deployment
 
-- Docker Compose builds and runs one gateway, eight micro-frontends, the API service, and PostgreSQL.
+- Docker Compose builds and runs one gateway, eight micro-frontends, the API service, PostgreSQL, Redis, and OpenSearch.
 - The Helm chart deploys the same services to K3s Kubernetes.
 - `.github/workflows/ci-cd.yml` compiles React, validates Helm, smoke-tests Docker routes, and publishes selected images.
 

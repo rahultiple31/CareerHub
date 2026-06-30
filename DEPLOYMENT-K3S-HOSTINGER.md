@@ -5,7 +5,9 @@
 Frontend: React.js
 Backend: Node.js API service
 Database: PostgreSQL
+Cache: Redis
 File Storage: Separate storage/backup through PostgreSQL PVC and AWS S3
+Search: Elasticsearch / OpenSearch
 Web Server: Nginx
 Deployment: K3s Kubernetes
 Monitoring: Uptime + logs
@@ -19,6 +21,14 @@ Object Storage: AWS S3 for PDF/images/data
 - Ubuntu 22.04 or 24.04 on Hostinger VPS KVM 8.
 - DNS `A` record pointing your app domain to the VPS public IP.
 - Open firewall ports `80` and `443`.
+- Set the OpenSearch host kernel limit before starting search workloads:
+
+```bash
+sudo sysctl -w vm.max_map_count=262144
+echo 'vm.max_map_count=262144' | sudo tee /etc/sysctl.d/99-opensearch.conf
+sudo sysctl --system
+```
+
 - K3s installed with the bundled Traefik disabled if you use Nginx Ingress:
 
 ```bash
@@ -113,7 +123,9 @@ Logs:
 ```bash
 kubectl logs -n hiresphere deploy/hiresphere-gateway -f
 kubectl logs -n hiresphere deploy/hiresphere-api -f
+kubectl logs -n hiresphere deploy/hiresphere-redis -f
 kubectl logs -n hiresphere statefulset/hiresphere-database -c postgresql -f
+kubectl logs -n hiresphere statefulset/hiresphere-opensearch -f
 ```
 
 Status:

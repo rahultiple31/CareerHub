@@ -74,6 +74,42 @@ storage:
     prefix: hiresphere
     existingSecret: hiresphere-s3-credentials
 
+cache:
+  provider: redis
+  enabled: true
+  port: 6379
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+search:
+  provider: opensearch
+  enabled: true
+  sysctl:
+    enabled: true
+    image: busybox:1.36
+    vmMaxMapCount: 262144
+  port: 9200
+  index: hiresphere
+  persistence:
+    enabled: true
+    storageClass: local-path
+    accessModes:
+      - ReadWriteOnce
+    size: 20Gi
+  javaOpts: "-Xms512m -Xmx512m"
+  resources:
+    requests:
+      cpu: 250m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+
 database:
   enabled: true
   auth:

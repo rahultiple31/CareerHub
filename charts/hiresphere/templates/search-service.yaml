@@ -1,0 +1,19 @@
+{{- if .Values.search.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "hiresphere.componentFullname" (dict "root" . "component" "opensearch") }}
+  labels:
+    {{- include "hiresphere.labels" . | nindent 4 }}
+    app.kubernetes.io/component: opensearch
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.search.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "hiresphere.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: opensearch
+{{- end }}

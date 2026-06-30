@@ -1,0 +1,16 @@
+{{- if .Values.search.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "hiresphere.componentFullname" (dict "root" . "component" "opensearch") }}-config
+  labels:
+    {{- include "hiresphere.labels" . | nindent 4 }}
+    app.kubernetes.io/component: opensearch
+data:
+  opensearch.yml: |
+    cluster.name: hiresphere-search
+    node.name: hiresphere-search-0
+    discovery.type: single-node
+    network.host: 0.0.0.0
+    plugins.security.disabled: true
+{{- end }}

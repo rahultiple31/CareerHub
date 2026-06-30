@@ -1,0 +1,112 @@
+{{- if .Values.search.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "hiresphere.componentFullname" (dict "root" . "component" "opensearch") }}
+  labels:
+    {{- include "hiresphere.labels" . | nindent 4 }}
+    app.kubernetes.io/component: opensearch
+spec:
+  serviceName: {{ include "hiresphere.componentFullname" (dict "root" . "component" "opensearch") }}
+  replicas: 1
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  selector:
+    matchLabels:
+      {{- include "hiresphere.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: opensearch
+  template:
+    metadata:
+      labels:
+        {{- include "hiresphere.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: opensearch
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+      {{- if .Values.search.sysctl.enabled }}
+      initContainers:
+        - name: configure-sysctl
+          image: {{ .Values.search.sysctl.image | quote }}
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - {{ printf "sysctl -w vm.max_map_count=%v" .Values.search.sysctl.vmMaxMapCount | quote }}
+          securityContext:
+            privileged: true
+            runAsUser: 0
+      {{- end }}
+      containers:
+        - name: opensearch
+          image: {{ printf "%s:%s" .Values.search.image.repository .Values.search.image.tag | quote }}
+          imagePullPolicy: {{ .Values.search.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+          env:
+            - name: DISABLE_INSTALL_DEMO_CONFIG
+              value: "true"
+            - name: OPENSEARCH_JAVA_OPTS
+              value: {{ .Values.search.javaOpts | quote }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.search.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /_cluster/health
+              port: http
+            initialDelaySeconds: 90
+            periodSeconds: 20
+            timeoutSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /_cluster/health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 10
+          resources:
+            {{- toYaml .Values.search.resources | nindent 12 }}
+          volumeMounts:
+            - name: opensearch-data
+              mountPath: /usr/share/opensearch/data
+            - name: opensearch-config
+              mountPath: /usr/share/opensearch/config/opensearch.yml
+              subPath: opensearch.yml
+              readOnly: true
+      volumes:
+        - name: opensearch-config
+          configMap:
+            name: {{ include "hiresphere.componentFullname" (dict "root" . "component" "opensearch") }}-config
+      {{- if not .Values.search.persistence.enabled }}
+        - name: opensearch-data
+          emptyDir: {}
+      {{- end }}
+  {{- if .Values.search.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: opensearch-data
+        labels:
+          {{- include "hiresphere.labels" . | nindent 10 }}
+          app.kubernetes.io/component: opensearch
+      spec:
+        accessModes:
+          {{- toYaml .Values.search.persistence.accessModes | nindent 10 }}
+        {{- with .Values.search.persistence.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.search.persistence.size }}
+  {{- end }}
+{{- end }}
